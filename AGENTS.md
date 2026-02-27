@@ -1,0 +1,50 @@
+# Project Documentation
+
+## Debugging & Runtime Guidelines
+- **Trust Runtime Errors Over Documentation**: When runtime validation fails (e.g., `invalid_type`, `missing_property`), prioritize the properties explicitly demanded by the error message over high-level documentation or abstraction layers.
+- **Trace Source of Truth**: For complex libraries or SDKs with multiple abstraction layers, verify the underlying type definitions (e.g., in `node_modules/**/*.d.ts`) rather than relying solely on top-level Typescript interfaces or online docs. If a library enforces a strict schema at a lower level (e.g., specific property names like `input` vs `args`), explicitly conform to that structure in your data preparation logic, even if high-level helpers exist.
+- **Prioritize Schema Documentation**: When debugging structural or validation errors, prioritize searching for the **latest** data schema, object model, or type definition documentation over high-level feature guides. Ensure documentation matches the installed library version.
+- **Ask for Help**: If specific documentation (like schema definitions) cannot be located, explicitly ask the user for assistance or links to relevant documentation to avoid wasting time on assumptions
+
+## React Router DOCS
+- Routing https://reactrouter.com/start/framework/routing 
+
+## Tech Stack
+- pnpm
+- react-router
+- tailwind css v4
+
+## Rules
+- 除非用户要求，否则不要自动编辑此文件。
+- **Git Operations**: 除非用户明确要求，否则绝对不要自动执行 git commit, git push 等操作。
+- comment 不要添加修改说明，只添加当前代码的解释。
+- localstorage 在统一文件中管理key. 除去通用key(比如 theme) 都需要使用相同的前缀
+- **Import & Quotes**: Always use double quotes `'` and `~/` alias for internal imports (relative to `app/`). Always include trailing semicolons `;`.
+
+## Project Structure
+- `app/` - Main application code
+  - `routes/` - Route components (pages)
+    - `notebooks.tsx` - Notebook list (Home)
+    - `notebook-notes.tsx` - Note list in a notebook
+    - `notebook-notedetail.tsx` - Note editor/view
+    - `tags.tsx` - Tag management/list
+    - `manifest.tsx` - Web app manifest
+    - `api.fs.ts` - File system API endpoints
+    - `playground/` - Feature testing and demos
+      - `webdav.tsx` - WebDAV integration testing page
+  - `components/` - Reusable UI components
+    - `ui/` - Shadcn UI components
+    - `editor/` - Markdown editor components
+  - `services/` - External services (e.g., File System client)
+  - `hooks/` - Custom React hooks
+  - `lib/` - Logic, state, and utilities
+    - `db.ts` - Dexie database schema and instance
+    - `services/` - Core business logic services (Note, Menu, Import/Export)
+    - `utils/` - Shared utility functions
+    - `constants.ts` - Application constants
+  - `root.tsx` - Root layout and context providers
+  - `routes.ts` - React Router route configuration
+- `wrangler.jsonc` - Cloudflare configuration
+
+## Business Logic
+- 不同的 notebook 中的数据是隔离的

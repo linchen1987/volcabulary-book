@@ -47,4 +47,4 @@
 - `wrangler.jsonc` - Cloudflare configuration
 
 ## Business Logic
-- 不同的 notebook 中的数据是隔离的
+- 不同的 space 中的数据是隔离的

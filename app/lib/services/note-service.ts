@@ -1,22 +1,20 @@
 import Dexie from 'dexie';
 import { db, generateId } from '~/lib/db';
-import type { Note, Notebook, Tag } from '~/lib/types';
+import type { Space, Word } from '~/lib/types';
 
-export const NoteService = {
-  // --- Notebook Operations ---
-
-  async getAllNotebooks(): Promise<Notebook[]> {
-    return db.notebooks.toArray();
+export const SpaceService = {
+  async getAllSpaces(): Promise<Space[]> {
+    return db.spaces.toArray();
   },
 
-  async getNotebook(id: string): Promise<Notebook | undefined> {
-    return db.notebooks.get(id);
+  async getSpace(id: string): Promise<Space | undefined> {
+    return db.spaces.get(id);
   },
 
-  async createNotebook(name: string): Promise<string> {
+  async createSpace(name: string): Promise<string> {
     const id = generateId();
-    await db.transaction('rw', [db.notebooks, db.syncEvents], async () => {
-      await db.notebooks.add({
+    await db.transaction('rw', [db.spaces, db.syncEvents], async () => {
+      await db.spaces.add({
         id,
         name,
         createdAt: Date.now(),
@@ -26,39 +24,29 @@ export const NoteService = {
     return id;
   },
 
-  async updateNotebook(
-    id: string,
-    updates: Partial<Omit<Notebook, 'id' | 'createdAt'>>,
-  ): Promise<void> {
-    await db.transaction('rw', [db.notebooks, db.syncEvents], async () => {
-      await db.notebooks.update(id, {
+  async updateSpace(id: string, updates: Partial<Omit<Space, 'id' | 'createdAt'>>): Promise<void> {
+    await db.transaction('rw', [db.spaces, db.syncEvents], async () => {
+      await db.spaces.update(id, {
         ...updates,
         updatedAt: Date.now(),
       });
     });
   },
 
-  async deleteNotebook(id: string): Promise<void> {
-    await db.transaction(
-      'rw',
-      [db.notebooks, db.notes, db.tags, db.noteTags, db.menuItems, db.syncEvents],
-      async () => {
-        await db.noteTags.where('notebookId').equals(id).delete();
-        await db.notes.where('notebookId').equals(id).delete();
-        await db.tags.where('notebookId').equals(id).delete();
-        await db.menuItems.where('notebookId').equals(id).delete();
-        await db.syncEvents.where('notebookId').equals(id).delete();
-        await db.notebooks.delete(id);
-      },
-    );
+  async deleteSpace(id: string): Promise<void> {
+    await db.transaction('rw', [db.spaces, db.words, db.syncEvents], async () => {
+      await db.words.where('spaceId').equals(id).delete();
+      await db.syncEvents.where('spaceId').equals(id).delete();
+      await db.spaces.delete(id);
+    });
   },
+};
 
-  // --- Note Operations ---
-
-  async getNotesByNotebook(notebookId: string, limit?: number): Promise<Note[]> {
-    const query = db.notes
-      .where('[notebookId+updatedAt]')
-      .between([notebookId, Dexie.minKey], [notebookId, Dexie.maxKey])
+export const WordService = {
+  async getWordsBySpace(spaceId: string, limit?: number): Promise<Word[]> {
+    const query = db.words
+      .where('[spaceId+updatedAt]')
+      .between([spaceId, Dexie.minKey], [spaceId, Dexie.maxKey])
       .reverse();
 
     if (limit) {
@@ -67,21 +55,30 @@ export const NoteService = {
     return query.toArray();
   },
 
-  async getNoteCountByNotebook(notebookId: string): Promise<number> {
-    return db.notes.where('notebookId').equals(notebookId).count();
+  async getWordCountBySpace(spaceId: string): Promise<number> {
+    return db.words.where('spaceId').equals(spaceId).count();
   },
 
-  async getNote(id: string): Promise<Note | undefined> {
-    return db.notes.get(id);
+  async getWord(id: string): Promise<Word | undefined> {
+    return db.words.get(id);
   },
 
-  async createNote(notebookId: string): Promise<string> {
+  async createWord(
+    spaceId: string,
+    data: Partial<Omit<Word, 'id' | 'spaceId' | 'createdAt' | 'updatedAt'>>,
+  ): Promise<string> {
     const id = generateId();
-    await db.transaction('rw', [db.notes, db.syncEvents], async () => {
-      await db.notes.add({
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      await db.words.add({
         id,
-        notebookId,
-        content: '',
+        spaceId,
+        content: data.content || '',
+        description: data.description,
+        translations: data.translations,
+        usages: data.usages,
+        level: data.level ?? 1,
+        phonetic: data.phonetic,
+        audioUrl: data.audioUrl,
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
@@ -89,166 +86,27 @@ export const NoteService = {
     return id;
   },
 
-  async updateNote(id: string, content: string): Promise<void> {
-    const normalize = (s: string) => s.replace(/\r/g, '').trim();
-    await db.transaction('rw', [db.notes, db.syncEvents], async () => {
-      const existing = await db.notes.get(id);
-      if (existing && normalize(existing.content) === normalize(content)) return;
-
-      await db.notes.update(id, {
-        content,
-        updatedAt: Date.now(),
-      });
-    });
-  },
-
-  async updateNoteWithTags(id: string, notebookId: string, content: string): Promise<void> {
-    const normalize = (s: string) => s.replace(/\r/g, '').trim();
-    await db.transaction('rw', [db.notes, db.tags, db.noteTags, db.syncEvents], async () => {
-      const existing = await db.notes.get(id);
-      if (existing && normalize(existing.content) === normalize(content)) return;
-
-      await this.updateNote(id, content);
-      await this.syncNoteTagsFromContent(id, notebookId, content);
-    });
-  },
-
-  async deleteNote(id: string): Promise<void> {
-    await db.transaction('rw', [db.notes, db.noteTags, db.syncEvents], async () => {
-      await db.notes.delete(id);
-      await db.noteTags.where('noteId').equals(id).delete();
-    });
-  },
-
-  async syncNoteTagsFromContent(
-    noteId: string,
-    notebookId: string,
-    content: string,
+  async updateWord(
+    id: string,
+    updates: Partial<Omit<Word, 'id' | 'spaceId' | 'createdAt'>>,
   ): Promise<void> {
-    // 使用正则提取所有 #标签
-    const hashtagRegex = /#([\w\u4e00-\u9fa5]+)/g;
-    const matches = content.matchAll(hashtagRegex);
-    const tagNames = Array.from(new Set(Array.from(matches).map((m) => m[1])));
-
-    await db.transaction('rw', [db.notes, db.tags, db.noteTags, db.syncEvents], async () => {
-      // 1. 获取或创建这些标签
-      const tagIds: string[] = [];
-      for (const name of tagNames) {
-        const tagId = await this.createTag(notebookId, name);
-        tagIds.push(tagId);
-      }
-
-      // 2. 更新关联关系
-      // 先删除现有的所有关联
-      await db.noteTags.where('noteId').equals(noteId).delete();
-
-      // 添加新的关联
-      for (const tagId of tagIds) {
-        await this.addTagToNote(noteId, tagId, notebookId);
-      }
-    });
-  },
-
-  // --- Tag Operations ---
-
-  async getTagsByNotebook(notebookId: string): Promise<Tag[]> {
-    return db.tags.where('notebookId').equals(notebookId).toArray();
-  },
-
-  async getTagsWithCounts(notebookId: string): Promise<(Tag & { count: number })[]> {
-    const tags = await db.tags.where('notebookId').equals(notebookId).toArray();
-    const tagCounts = await Promise.all(
-      tags.map(async (tag) => {
-        const count = await db.noteTags.where('tagId').equals(tag.id).count();
-        return { ...tag, count };
-      }),
-    );
-    return tagCounts;
-  },
-
-  async createTag(notebookId: string, name: string): Promise<string> {
-    // Check if tag already exists in this notebook
-    const existing = await db.tags.where({ notebookId, name }).first();
-    if (existing) return existing.id;
-
-    const id = generateId();
-    await db.transaction('rw', [db.tags, db.syncEvents], async () => {
-      await db.tags.add({
-        id,
-        notebookId,
-        name,
-        createdAt: Date.now(),
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      await db.words.update(id, {
+        ...updates,
+        updatedAt: Date.now(),
       });
     });
-    return id;
   },
 
-  async deleteTag(id: string): Promise<void> {
-    await db.transaction('rw', [db.tags, db.noteTags, db.syncEvents, db.notes], async () => {
-      await db.tags.delete(id);
-      await db.noteTags.where('tagId').equals(id).delete();
+  async deleteWord(id: string): Promise<void> {
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      await db.words.delete(id);
     });
   },
 
-  // --- Note-Tag Association Operations ---
-
-  async addTagToNote(noteId: string, tagId: string, notebookId: string): Promise<void> {
-    try {
-      await db.transaction('rw', [db.noteTags, db.syncEvents, db.notes], async () => {
-        await db.noteTags.add({ noteId, tagId, notebookId });
-      });
-    } catch (_e) {
-      // Ignore duplicate errors
-    }
-  },
-
-  async removeTagFromNote(noteId: string, tagId: string): Promise<void> {
-    await db.transaction('rw', [db.noteTags, db.syncEvents, db.notes], async () => {
-      await db.noteTags.where({ noteId, tagId }).delete();
-    });
-  },
-
-  async getTagsForNote(noteId: string): Promise<Tag[]> {
-    const associations = await db.noteTags.where('noteId').equals(noteId).toArray();
-    const tagIds = associations.map((a) => a.tagId);
-    return db.tags.where('id').anyOf(tagIds).toArray();
-  },
-
-  async getNotesByTag(tagId: string): Promise<Note[]> {
-    const associations = await db.noteTags.where('tagId').equals(tagId).toArray();
-    const noteIds = associations.map((a) => a.noteId);
-    return db.notes.where('id').anyOf(noteIds).reverse().toArray();
-  },
-
-  async getAllNotes(limit?: number): Promise<Note[]> {
-    const query = db.notes.orderBy('updatedAt').reverse();
-    if (limit) {
-      return query.limit(limit).toArray();
-    }
-    return query.toArray();
-  },
-
-  async getNoteTagNamesMap(): Promise<Record<string, string[]>> {
-    const associations = await db.noteTags.toArray();
-    const tags = await db.tags.toArray();
-    const tagIdToName = Object.fromEntries(tags.map((t) => [t.id, t.name]));
-    const map: Record<string, string[]> = {};
-    associations.forEach((a) => {
-      if (!map[a.noteId]) map[a.noteId] = [];
-      const tagName = tagIdToName[a.tagId];
-      if (tagName) map[a.noteId].push(tagName);
-    });
-    return map;
-  },
-
-  async createNoteWithContent(notebookId: string, content: string): Promise<string> {
-    return db.transaction('rw', [db.notes, db.tags, db.noteTags, db.syncEvents], async () => {
-      const id = await this.createNote(notebookId);
-      if (content.trim()) {
-        await this.updateNote(id, content);
-        await this.syncNoteTagsFromContent(id, notebookId, content);
-      }
-      return id;
-    });
+  async getWordsByLevel(spaceId: string, level: number): Promise<Word[]> {
+    return db.words.where({ spaceId, level }).reverse().sortBy('updatedAt');
   },
 };
+
+export const NoteService = SpaceService;

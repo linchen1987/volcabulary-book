@@ -1,7 +1,7 @@
 import { STORAGE_KEYS } from '~/lib/constants';
 import type { FsConnection } from '~/services/fs-client';
 
-export type StorageType = 'webdav' | 's3';
+export type StorageType = 'none' | 'webdav' | 's3';
 
 export const setStorageType = (type: StorageType): void => {
   if (typeof window === 'undefined') return;
@@ -9,8 +9,8 @@ export const setStorageType = (type: StorageType): void => {
 };
 
 const getStorageType = (): StorageType => {
-  if (typeof window === 'undefined') return 'webdav';
-  return (localStorage.getItem(STORAGE_KEYS.STORAGE_TYPE) as StorageType) || 'webdav';
+  if (typeof window === 'undefined') return 'none';
+  return (localStorage.getItem(STORAGE_KEYS.STORAGE_TYPE) as StorageType) || 'none';
 };
 
 const getWebDAVConfig = (): { url: string; username?: string; password?: string } | null => {
@@ -47,6 +47,7 @@ const getS3Config = (): {
 
 const getFsConnection = (): FsConnection | null => {
   const storageType = getStorageType();
+  if (storageType === 'none') return null;
   if (storageType === 's3') {
     const s3Config = getS3Config();
     if (!s3Config) return null;

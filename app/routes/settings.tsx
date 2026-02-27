@@ -14,7 +14,7 @@ import { FsService, type StorageType } from '~/lib/services/fs-service';
 export default function SettingsPage() {
   const [storageType, setStorageType] = useLocalStorage(
     STORAGE_KEYS.STORAGE_TYPE,
-    'webdav' as StorageType,
+    'none' as StorageType,
   );
 
   const [url, setUrl] = useLocalStorage(STORAGE_KEYS.WEBDAV_URL, 'https://dav.jianguoyun.com/dav/');
@@ -61,12 +61,12 @@ export default function SettingsPage() {
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-6">
       <div className="max-w-2xl mx-auto space-y-6">
         <header className="flex items-center gap-4">
-          <Link to="/">
+          <Link to="/spaces">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="w-4 h-4" />
             </Button>
           </Link>
-          <h1 className="text-2xl font-bold">Settings</h1>
+          <h1 className="text-2xl font-bold">设置</h1>
         </header>
 
         <Card>
@@ -84,6 +84,10 @@ export default function SettingsPage() {
                 onValueChange={(v) => handleStorageTypeChange(v as StorageType)}
                 className="flex gap-4"
               >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="none" id="none" />
+                  <Label htmlFor="none">No Remote Storage</Label>
+                </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="webdav" id="webdav" />
                   <Label htmlFor="webdav">WebDAV</Label>
@@ -201,11 +205,13 @@ export default function SettingsPage() {
               </>
             )}
 
-            <div className="pt-2">
-              <Button onClick={handleTestConnection} disabled={status === 'testing'}>
-                {status === 'testing' ? 'Testing...' : 'Test Connection'}
-              </Button>
-            </div>
+            {storageType !== 'none' && (
+              <div className="pt-2">
+                <Button onClick={handleTestConnection} disabled={status === 'testing'}>
+                  {status === 'testing' ? 'Testing...' : 'Test Connection'}
+                </Button>
+              </div>
+            )}
 
             {status === 'success' && (
               <div className="p-3 bg-green-100 text-green-700 rounded flex items-center gap-2 text-sm">

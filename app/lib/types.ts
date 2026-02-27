@@ -1,46 +1,32 @@
-export interface Notebook {
+export interface Space {
   id: string;
   name: string;
   createdAt: number;
   updatedAt: number;
 }
 
-export interface Note {
+export interface Word {
   id: string;
-  notebookId: string;
+  spaceId: string;
   content: string;
+  description?: string;
+  translations?: string[];
+  usages?: Usage[];
+  level: number;
+  phonetic?: string;
+  audioUrl?: string;
   createdAt: number;
   updatedAt: number;
 }
 
-export interface Tag {
-  id: string;
-  notebookId: string;
-  name: string;
-  createdAt: number;
-}
-
-export interface NoteTag {
-  noteId: string;
-  tagId: string;
-  notebookId: string;
-}
-
-export interface MenuItem {
-  id: string;
-  notebookId: string;
-  parentId: string | null;
-  name: string;
-  type: 'note' | 'search';
-  target: string; // noteId or search query
-  order: number;
-  createdAt: number;
-  updatedAt: number;
+export interface Usage {
+  sentence: string;
+  translation?: string;
 }
 
 export interface SyncEvent {
   id: string;
-  notebookId: string;
+  spaceId: string;
   entityName: string;
   entityId: string;
   action: 'create' | 'update' | 'delete';

@@ -5,24 +5,24 @@ import { SyncService } from '~/lib/services/sync/service';
 
 interface SyncState {
   isSyncing: boolean;
-  notebookId: string | null;
-  setSyncing: (isSyncing: boolean, notebookId?: string) => void;
+  spaceId: string | null;
+  setSyncing: (isSyncing: boolean, spaceId?: string) => void;
   syncPush: (
-    notebookId: string,
+    spaceId: string,
     options?: { showToast?: boolean; skipPull?: boolean },
     onSyncComplete?: () => Promise<void>,
   ) => Promise<void>;
-  syncPull: (notebookId: string, onSyncComplete?: () => Promise<void>) => Promise<void>;
-  getHasPulledInSession: (notebookId: string) => boolean;
-  ensurePulled: (notebookId: string) => Promise<boolean>;
+  syncPull: (spaceId: string, onSyncComplete?: () => Promise<void>) => Promise<void>;
+  getHasPulledInSession: (spaceId: string) => boolean;
+  ensurePulled: (spaceId: string) => Promise<boolean>;
 }
 
 export const useSyncStore = create<SyncState>((set, get) => ({
   isSyncing: false,
-  notebookId: null,
-  setSyncing: (isSyncing, notebookId) => set({ isSyncing, notebookId: notebookId || null }),
+  spaceId: null,
+  setSyncing: (isSyncing, spaceId) => set({ isSyncing, spaceId: spaceId || null }),
   syncPush: async (
-    notebookId: string,
+    spaceId: string,
     options = { showToast: false, skipPull: false },
     onSyncComplete?: () => Promise<void>,
   ) => {
@@ -31,73 +31,73 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     const { isSyncing } = get();
     if (isSyncing) return;
 
-    set({ isSyncing: true, notebookId });
+    set({ isSyncing: true, spaceId });
     try {
       if (options.skipPull) {
-        await SyncService.push(notebookId);
+        await SyncService.push(spaceId);
         if (options.showToast) {
-          toast.success('Pushed successfully');
+          toast.success('推送成功');
         }
       } else {
-        const hasPulledInSession = get().getHasPulledInSession(notebookId);
+        const hasPulledInSession = get().getHasPulledInSession(spaceId);
         if (!hasPulledInSession) {
-          await SyncService.syncNotebook(notebookId);
+          await SyncService.syncSpace(spaceId);
           await onSyncComplete?.();
-          sessionStorage.setItem(`timenote:pull:${notebookId}`, 'true');
+          sessionStorage.setItem(`vocab-book:pull:${spaceId}`, 'true');
           if (options.showToast) {
-            toast.success('Synced successfully');
+            toast.success('同步成功');
           }
         } else {
-          await SyncService.push(notebookId);
+          await SyncService.push(spaceId);
           if (options.showToast) {
-            toast.success('Pushed successfully');
+            toast.success('推送成功');
           }
         }
       }
     } catch (e) {
       console.error('Sync error:', e);
       const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred';
-      toast.error(`Sync failed: ${errorMessage}`);
+      toast.error(`同步失败: ${errorMessage}`);
     } finally {
-      set({ isSyncing: false, notebookId: null });
+      set({ isSyncing: false, spaceId: null });
     }
   },
-  syncPull: async (notebookId: string, onSyncComplete?: () => Promise<void>) => {
+  syncPull: async (spaceId: string, onSyncComplete?: () => Promise<void>) => {
     if (!FsService.isConfigured()) return;
 
     const { isSyncing } = get();
     if (isSyncing) return;
 
-    set({ isSyncing: true, notebookId });
+    set({ isSyncing: true, spaceId });
     try {
-      await SyncService.pull(notebookId);
+      await SyncService.pull(spaceId);
       await onSyncComplete?.();
-      sessionStorage.setItem(`timenote:pull:${notebookId}`, 'true');
-      toast.success('Pulled successfully');
+      sessionStorage.setItem(`vocab-book:pull:${spaceId}`, 'true');
+      toast.success('拉取成功');
     } catch (e) {
       console.error('Pull error:', e);
       const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred';
-      toast.error(`Pull failed: ${errorMessage}`);
+      toast.error(`拉取失败: ${errorMessage}`);
     } finally {
-      set({ isSyncing: false, notebookId: null });
+      set({ isSyncing: false, spaceId: null });
     }
   },
-  getHasPulledInSession: (notebookId: string) => {
-    return sessionStorage.getItem(`timenote:pull:${notebookId}`) === 'true';
+  getHasPulledInSession: (spaceId: string) => {
+    return sessionStorage.getItem(`vocab-book:pull:${spaceId}`) === 'true';
   },
-  ensurePulled: async (notebookId: string) => {
-    const hasPulled = get().getHasPulledInSession(notebookId);
+  ensurePulled: async (spaceId: string) => {
+    const hasPulled = get().getHasPulledInSession(spaceId);
 
     if (!hasPulled) {
       try {
-        await SyncService.pull(notebookId);
-        sessionStorage.setItem(`timenote:pull:${notebookId}`, 'true');
-        toast.success('Data pulled successfully');
+        await SyncService.pull(spaceId);
+        sessionStorage.setItem(`vocab-book:pull:${spaceId}`, 'true');
+        toast.success('数据拉取成功');
         return true;
       } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'Unknown error occurred';
         console.error('Auto pull error:', e);
-        toast.error(`Auto pull failed: ${errorMessage}`);
+        toast.error(`自动拉取失败: ${errorMessage}`);
         return false;
       }
     }

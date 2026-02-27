@@ -3,14 +3,13 @@ import { index, type RouteConfig, route } from '@react-router/dev/routes';
 export default [
   index('routes/landing.tsx'),
   route('settings', 'routes/settings.tsx'),
-  route('s/list', 'routes/notebooks.tsx'),
+  route('spaces', 'routes/spaces.tsx'),
 
-  route('s/:notebookToken', 'routes/notebook-layout.tsx', [
-    index('routes/notebook-notes.tsx'),
-    route('tags', 'routes/tags.tsx'),
-    route('settings', 'routes/notebook-settings.tsx'),
+  route('spaces/:spaceToken', 'routes/space-item/layout.tsx', [
+    index('routes/space-item/list.tsx'),
+    route('settings', 'routes/space-item/settings.tsx'),
     route('manifest.webmanifest', 'routes/manifest.tsx'),
-    route(':noteId', 'routes/notebook-notedetail.tsx'),
+    route(':wordId', 'routes/space-item/detail.tsx'),
   ]),
 
   // Playground 模块

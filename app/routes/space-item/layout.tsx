@@ -2,26 +2,18 @@
 
 import { GripVertical } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Outlet, useNavigate, useParams, useSearchParams } from 'react-router';
-import { NotebookSidebar } from '~/components/notebook-sidebar';
+import { Outlet, useParams } from 'react-router';
+import { Sidebar } from '~/components/sidebar';
 import { Sheet, SheetContent } from '~/components/ui/sheet';
 import { usePWA } from '~/hooks/use-pwa';
 import { STORAGE_KEYS } from '~/lib/constants';
 import { useSidebarStore } from '~/lib/stores/sidebar-store';
 import { cn } from '~/lib/utils';
-import { parseNotebookId } from '~/lib/utils/token';
-import type { Route } from './+types/notebook-layout';
+import { parseSpaceId } from '~/lib/utils/token';
 
-export const meta: Route.MetaFunction = () => {
-  return [{ title: 'TimeNote' }];
-};
-
-export default function NotebookLayout() {
-  const { notebookToken } = useParams();
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const nbId = parseNotebookId(notebookToken || '');
-  const activeMenuItemId = searchParams.get('m') || undefined;
+export default function SpaceLayout() {
+  const { spaceToken } = useParams();
+  const spaceId = parseSpaceId(spaceToken || '');
   const { isMobileSidebarOpen, setMobileSidebarOpen, isDesktopSidebarOpen, setDesktopSidebarOpen } =
     useSidebarStore();
   const [sidebarWidth, setSidebarWidth] = useState(256);
@@ -29,35 +21,20 @@ export default function NotebookLayout() {
   const isPWA = usePWA();
 
   useEffect(() => {
-    if (notebookToken) {
+    if (spaceToken) {
       let link = document.querySelector(`link[rel="manifest"]`) as HTMLLinkElement;
       if (!link) {
         link = document.createElement('link');
         link.rel = 'manifest';
         document.head.appendChild(link);
       }
-      link.href = `/s/${notebookToken}/manifest.webmanifest`;
+      link.href = `/spaces/${spaceToken}/manifest.webmanifest`;
 
       return () => {
         link?.remove();
       };
     }
-  }, [notebookToken]);
-
-  const handleSelectSearch = (query: string, menuItemId?: string) => {
-    const params = new URLSearchParams();
-    if (query) params.set('q', query);
-    if (menuItemId) params.set('m', menuItemId);
-    navigate(`/s/${notebookToken}?${params.toString()}`);
-    setMobileSidebarOpen(false);
-  };
-
-  const handleSelectNote = (noteId: string, menuItemId?: string) => {
-    const params = new URLSearchParams();
-    if (menuItemId) params.set('m', menuItemId);
-    navigate(`/s/${notebookToken}/${noteId}?${params.toString()}`);
-    setMobileSidebarOpen(false);
-  };
+  }, [spaceToken]);
 
   useEffect(() => {
     const savedWidth = localStorage.getItem(STORAGE_KEYS.SIDEBAR_WIDTH);
@@ -94,7 +71,6 @@ export default function NotebookLayout() {
 
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
-      {/* Desktop Sidebar */}
       <div
         className={cn(
           'hidden md:flex h-full transition-all duration-300 ease-in-out',
@@ -103,14 +79,7 @@ export default function NotebookLayout() {
         style={{ width: isDesktopSidebarOpen ? `${sidebarWidth + 8}px` : '0px' }}
       >
         <div style={{ width: `${sidebarWidth}px` }}>
-          <NotebookSidebar
-            notebookId={nbId}
-            onSelectSearch={handleSelectSearch}
-            onSelectNote={handleSelectNote}
-            selectedItemId={activeMenuItemId}
-            isPWA={isPWA}
-            onClose={() => setDesktopSidebarOpen(false)}
-          />
+          <Sidebar spaceId={spaceId} isPWA={isPWA} onClose={() => setDesktopSidebarOpen(false)} />
         </div>
         <button
           type="button"
@@ -123,16 +92,12 @@ export default function NotebookLayout() {
         </button>
       </div>
 
-      {/* Mobile Sidebar (Drawer) */}
       <Sheet open={isMobileSidebarOpen} onOpenChange={setMobileSidebarOpen}>
         <SheetContent side="left" className="p-0 w-72 border-none">
-          <NotebookSidebar
-            notebookId={nbId}
-            onSelectSearch={handleSelectSearch}
-            onSelectNote={handleSelectNote}
-            onSelectNotebook={() => setMobileSidebarOpen(false)}
-            selectedItemId={activeMenuItemId}
+          <Sidebar
+            spaceId={spaceId}
             isPWA={isPWA}
+            onClose={() => setMobileSidebarOpen(false)}
             className="w-full border-none"
           />
         </SheetContent>

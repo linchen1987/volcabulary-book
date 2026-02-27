@@ -9,31 +9,17 @@ import { DataToolsService } from '~/lib/services/data-tools-service';
 
 export default function DataToolsPage() {
   const [isClearingSyncEvents, setIsClearingSyncEvents] = useState(false);
-  const [isPruningTags, setIsPruningTags] = useState(false);
 
   const clearSyncEvents = async () => {
     setIsClearingSyncEvents(true);
     try {
       await DataToolsService.clearSyncEvents(undefined);
-      toast.success('SyncEvents cleared');
+      toast.success('同步事件已清除');
     } catch (error) {
       console.error('Clear syncEvents failed:', error);
-      toast.error('Clear failed');
+      toast.error('清除失败');
     } finally {
       setIsClearingSyncEvents(false);
-    }
-  };
-
-  const pruneTags = async () => {
-    setIsPruningTags(true);
-    try {
-      await DataToolsService.pruneTags(undefined);
-      toast.success('Orphaned tags pruned successfully');
-    } catch (error) {
-      console.error('Prune tags failed:', error);
-      toast.error('Prune failed');
-    } finally {
-      setIsPruningTags(false);
     }
   };
 
@@ -41,46 +27,24 @@ export default function DataToolsPage() {
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-2xl mx-auto space-y-8">
         <header className="space-y-2">
-          <h1 className="text-3xl font-bold tracking-tight">Data Tools</h1>
-          <p className="text-muted-foreground">
-            Raw data operations, maintenance tasks, and database migrations.
-          </p>
+          <h1 className="text-3xl font-bold tracking-tight">数据工具</h1>
+          <p className="text-muted-foreground">数据操作、维护任务和数据库管理。</p>
         </header>
 
         <Card>
           <CardHeader>
-            <CardTitle>Clear All SyncEvents</CardTitle>
+            <CardTitle>清除所有同步事件</CardTitle>
             <CardDescription>
-              Delete all records from the <code>syncEvents</code> table.
+              删除 <code>syncEvents</code> 表中的所有记录。
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex gap-4">
               <Button onClick={clearSyncEvents} disabled={isClearingSyncEvents}>
-                {isClearingSyncEvents ? 'Clearing...' : 'Clear SyncEvents'}
+                {isClearingSyncEvents ? '清除中...' : '清除同步事件'}
               </Button>
               <Button variant="outline" asChild>
-                <Link to="/playground">Back to Playground</Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Prune Tags</CardTitle>
-            <CardDescription>
-              Delete tags that are not associated with any notes. This removes orphaned tags from
-              the <code>tags</code> table.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex gap-4">
-              <Button onClick={pruneTags} disabled={isPruningTags}>
-                {isPruningTags ? 'Pruning...' : 'Prune Tags'}
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/playground">Back to Playground</Link>
+                <Link to="/playground">返回 Playground</Link>
               </Button>
             </div>
           </CardContent>

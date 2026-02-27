@@ -1,15 +1,12 @@
-import type { MenuItem, Note, Notebook, NoteTag, Tag } from '~/lib/types';
+import type { Space, Word } from '~/lib/types';
 
-export type SyncableEntity = Notebook | Note | Tag | MenuItem | NoteTag;
+export type SyncableEntity = Space | Word;
 
-export const SYNC_ROOT_PATH = '/timenote';
+export const SYNC_ROOT_PATH = '/vocab-book';
 
 export interface BackupData {
-  notebooks?: Notebook[];
-  notes?: Note[];
-  tags?: Tag[];
-  noteTags?: NoteTag[];
-  menuItems?: MenuItem[];
+  spaces?: Space[];
+  words?: Word[];
   version: number;
   exportedAt: number;
 }

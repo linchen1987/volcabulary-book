@@ -1,45 +1,59 @@
-# TimeNote
+# Vocabulary Book
 
-Time Note is my personal note.
+单词本应用 - 记录和学习英语单词
 
-## Demo
-[https://timenote.online/](https://timenote.online/)
+## 功能
 
-## Features
-The following are the core features of Time Note, I hope you will like it.
+### 1. 单词管理
+- 添加、编辑、删除单词
+- 支持单词、短语、句子
+- 记录翻译、解释、例句
+- 音标支持
 
-### 1. Easily record
-- Take notes like sending to WeChat, Moments, or Twitter
-- No need to worry about which directory to put it in
-- No need to write a title, add pictures
+### 2. 学习辅助
+- Level 级别标记掌握程度
+- 单词筛选和排序
+- 测验功能（计划中）
+- AI 辅助生成（计划中）
 
-### 2. Flexible organization
-The navigation bar is extremely flexible. It can be set as a channel to organize notes with specified characteristics, or it can be pointed directly to a note.
+### 3. 数据独立
+- 数据存储在浏览器 IndexedDB
+- 支持 WebDAV 和 S3 同步
+- 数据导入导出
 
-### 3. Each notebook is an independent APP
-In Time Note, you can create multiple notebooks, and each notebook can be opened separately like an APP
+### 4. PWA 支持
+- 每个空间可独立安装为 APP
+- 离线使用
 
-Through PWA technology, each notebook in Time Note can be installed as an independent APP.
+## 技术栈
 
-### 4. Data is completely independent
-- Notes are completely open source
-- Supports "installing" Time Note directly into your own personal cloud space through [Blocklet](https://launcher.arcblock.io/)
-- Notes can be migrated at any time (Not implemented)
+- React 19
+- React Router 7
+- Dexie (IndexedDB)
+- Tailwind CSS v4
+- Cloudflare Workers
 
-## Credit to
-### [Flomo](https://flomoapp.com/)
-Time Note can be said to be another version of flomo. I am a user of flomo. I encountered some inconveniences when using flomo, so I designed Time Note based on flomo.
+## 开发
 
-### [Discuss Kit](https://store.blocklet.dev/blocklets/z8ia1WEiBZ7hxURf6LwH21Wpg99vophFwSJdu)
-Discuss Kit is the core component of the Blocklet platform and supports independent deployment as a multi-functional writing tool. I get a lot of technical support from Discuss Kit
+```bash
+# 安装依赖
+pnpm install
 
-### Other note-taking applications
-There are also products such as Yuque, Apple Notes, Feishu Documents, Obsidian, and Mowen Notes, which have given me a lot of reference and inspiration.
+# 启动开发服务器
+pnpm dev
 
-### [Lexical](https://github.com/facebook/lexical)
-An open source editor.
+# 构建
+pnpm build
+
+# 类型检查
+pnpm typecheck
+
+# 代码检查
+pnpm lint
+```
 
 ## About Me
+
 Twitter: https://x.com/linklin1987
 
 Email: link.lin.1987@gmail.com

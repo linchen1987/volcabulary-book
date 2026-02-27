@@ -12,13 +12,13 @@ export const SyncService = {
     isInitialized = true;
   },
 
-  async getRemoteNotebooks() {
+  async getRemoteSpaces() {
     try {
       const list = await FsService.list(SYNC_ROOT_PATH);
-      const notebooks = [];
+      const spaces = [];
 
       for (const item of list) {
-        if (item.type === 'directory' && item.basename.startsWith('nb_')) {
+        if (item.type === 'directory' && item.basename.startsWith('sp_')) {
           const parts = item.basename.split('_');
           const id = parts[1];
           if (!id) continue;
@@ -27,50 +27,46 @@ export const SyncService = {
           try {
             const dataStr = await FsService.read(`${item.filename}/data.json`);
             const data = JSON.parse(dataStr) as BackupData;
-            if (data.notebooks && data.notebooks.length > 0) {
-              name = data.notebooks[0].name;
+            if (data.spaces && data.spaces.length > 0) {
+              name = data.spaces[0].name;
             }
-          } catch (_e) {
-            // console.warn(`Failed to read metadata for ${item.basename}`, e);
-          }
+          } catch (_e) {}
 
-          notebooks.push({
+          spaces.push({
             id,
             name,
             path: item.filename,
           });
         }
       }
-      return notebooks;
+      return spaces;
     } catch (e) {
-      console.error('Failed to list remote notebooks', e);
+      console.error('Failed to list remote spaces', e);
       return [];
     }
   },
 
-  async syncNotebook(notebookId: string) {
+  async syncSpace(spaceId: string) {
     await SyncService.init();
-    const notebookPath = `${SYNC_ROOT_PATH}/nb_${notebookId}`;
-    await FsService.ensureDir(notebookPath);
+    const spacePath = `${SYNC_ROOT_PATH}/sp_${spaceId}`;
+    await FsService.ensureDir(spacePath);
 
-    await SyncService.pull(notebookId);
-    await SyncService.push(notebookId);
+    await SyncService.pull(spaceId);
+    await SyncService.push(spaceId);
   },
 
-  async pull(notebookId: string) {
-    const dataPath = `${SYNC_ROOT_PATH}/nb_${notebookId}/data.json`;
+  async pull(spaceId: string) {
+    const dataPath = `${SYNC_ROOT_PATH}/sp_${spaceId}/data.json`;
     let remoteData: BackupData | null = null;
     try {
       const content = await FsService.read(dataPath);
       remoteData = JSON.parse(content);
-    } catch (_e) {
-      // console.log("No remote data found, skipping pull logic");
-    }
+    } catch (_e) {}
 
     if (!remoteData) return;
 
     const result = await DataService.applyBackupData(remoteData, {
-      notebookId,
+      spaceId,
     });
 
     if (result.errors.length > 0) {
@@ -80,18 +76,26 @@ export const SyncService = {
     }
   },
 
-  async push(notebookId: string) {
+  async push(spaceId: string) {
     await SyncService.init();
-    const notebookPath = `${SYNC_ROOT_PATH}/nb_${notebookId}`;
-    await FsService.ensureDir(notebookPath);
+    const spacePath = `${SYNC_ROOT_PATH}/sp_${spaceId}`;
+    await FsService.ensureDir(spacePath);
 
-    const data = await DataService.fetchBackupData(notebookId);
+    const data = await DataService.fetchBackupData(spaceId);
 
     const content = JSON.stringify(data);
-    const path = `${SYNC_ROOT_PATH}/nb_${notebookId}/data.json`;
+    const path = `${SYNC_ROOT_PATH}/sp_${spaceId}/data.json`;
 
     await FsService.write(path, content);
 
-    await db.syncEvents.where('notebookId').equals(notebookId).delete();
+    await db.syncEvents.where('spaceId').equals(spaceId).delete();
+  },
+
+  getRemoteNotebooks: function () {
+    return this.getRemoteSpaces();
+  },
+
+  syncNotebook: function (spaceId: string) {
+    return this.syncSpace(spaceId);
   },
 };

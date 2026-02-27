@@ -1,19 +1,18 @@
 import type { LoaderFunctionArgs } from 'react-router';
-import { parseNotebookName } from '~/lib/utils/token';
+import { parseSpaceName } from '~/lib/utils/token';
 
 export async function loader({ params }: LoaderFunctionArgs) {
-  const { notebookToken } = params;
-  const notebookName = parseNotebookName(notebookToken || '');
-  const displayName = notebookName || 'TimeNote';
+  const { spaceToken } = params;
+  const spaceName = parseSpaceName(spaceToken || '');
+  const displayName = spaceName || 'Vocab';
 
   const manifest = {
-    // 使用 notebookToken 作为唯一标识符，确保不同笔记本是独立的 App 实例
-    id: `/s/${notebookToken}`,
+    id: `/spaces/${spaceToken}`,
     name: `${displayName}`,
     short_name: displayName,
-    description: `Notes for ${displayName}`,
-    start_url: `/s/${notebookToken}`,
-    scope: `/s/${notebookToken}`,
+    description: `单词本 - ${displayName}`,
+    start_url: `/spaces/${spaceToken}`,
+    scope: `/spaces/${spaceToken}`,
     display: 'standalone',
     orientation: 'any',
     background_color: '#ffffff',

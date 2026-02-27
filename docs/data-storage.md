@@ -42,19 +42,19 @@
 ### 目录结构
 
 ```
-/timenote/                    # SYNC_ROOT_PATH
-  /nb_{notebookId}/           # 每个笔记本一个目录
-    data.json                 # 笔记本数据（笔记、标签等）
+/vocab-book/                   # SYNC_ROOT_PATH
+  /sp_{spaceId}/              # 每个空间一个目录
+    data.json                 # 空间数据（单词等）
 ```
 
 ### 同步流程
 
 ```
-push(notebookId)
-  ├── init() → ensureDir(/timenote)
-  ├── ensureDir(/timenote/nb_{id})
-  └── write(/timenote/nb_{id}/data.json)
+push(spaceId)
+  ├── init() → ensureDir(/vocab-book)
+  ├── ensureDir(/vocab-book/sp_{id})
+  └── write(/vocab-book/sp_{id}/data.json)
 
-pull(notebookId)
-  └── read(/timenote/nb_{id}/data.json) → 合并到本地
+pull(spaceId)
+  └── read(/vocab-book/sp_{id}/data.json) → 合并到本地
 ```

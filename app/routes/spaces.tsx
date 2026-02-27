@@ -5,22 +5,15 @@ import {
   Calendar,
   Cloud,
   CloudDownload,
-  Database,
   Download,
   Edit2,
-  Github,
-  Globe,
   LayoutGrid,
-  Mail,
   Monitor,
   Moon,
   MoreVertical,
-  Notebook as NotebookIcon,
   Plus,
   RefreshCw,
   Settings,
-  ShieldCheck,
-  Smartphone,
   Sun,
   Trash2,
   Upload,
@@ -40,14 +33,7 @@ import {
   AlertDialogTitle,
 } from '~/components/ui/alert-dialog';
 import { Button } from '~/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '~/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '~/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -57,17 +43,17 @@ import {
 import { Input } from '~/components/ui/input';
 import { ExportService } from '~/lib/services/export-service';
 import { ImportService } from '~/lib/services/import-service';
-import { NoteService } from '~/lib/services/note-service';
+import { SpaceService } from '~/lib/services/note-service';
 import { SyncService } from '~/lib/services/sync/service';
 import type { BackupData } from '~/lib/services/sync/types';
-import { createNotebookToken } from '~/lib/utils/token';
+import { createSpaceToken } from '~/lib/utils/token';
 
 export const meta: MetaFunction = () => {
-  return [{ title: '笔记本 - Time Note' }];
+  return [{ title: '空间 - Vocabulary Book' }];
 };
 
 function ThemeToggle() {
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
 
   return (
     <DropdownMenu>
@@ -106,35 +92,35 @@ function ThemeToggle() {
   );
 }
 
-export default function NotebooksPage() {
-  const notebooks = useLiveQuery(() => NoteService.getAllNotebooks());
+export default function SpacesPage() {
+  const spaces = useLiveQuery(() => SpaceService.getAllSpaces());
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [notebookToDelete, setNotebookToDelete] = useState<string | null>(null);
+  const [spaceToDelete, setSpaceToDelete] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  interface RemoteNotebook {
+  interface RemoteSpace {
     id: string;
     name: string;
     path: string;
   }
 
-  const [remoteNotebooks, setRemoteNotebooks] = useState<RemoteNotebook[]>([]);
+  const [remoteSpaces, setRemoteSpaces] = useState<RemoteSpace[]>([]);
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
   const [syncingId, setSyncingId] = useState<string | null>(null);
 
   const loadRemote = useCallback(async () => {
     setIsLoadingRemote(true);
     try {
-      const list = await SyncService.getRemoteNotebooks();
-      setRemoteNotebooks(list);
+      const list = await SyncService.getRemoteSpaces();
+      setRemoteSpaces(list);
     } catch (e) {
-      console.error('Failed to load remote notebooks', e);
+      console.error('Failed to load remote spaces', e);
     } finally {
       setIsLoadingRemote(false);
     }
@@ -147,7 +133,7 @@ export default function NotebooksPage() {
   const handleSync = async (id: string) => {
     setSyncingId(id);
     try {
-      await SyncService.syncNotebook(id);
+      await SyncService.syncSpace(id);
       toast.success('同步成功');
       loadRemote();
     } catch (e) {
@@ -174,24 +160,24 @@ export default function NotebooksPage() {
 
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    await NoteService.createNotebook(newName);
+    await SpaceService.createSpace(newName);
     setNewName('');
     setIsCreating(false);
-    toast.success('笔记本创建成功');
+    toast.success('空间创建成功');
   };
 
   const handleDelete = (id: string) => {
-    setNotebookToDelete(id);
+    setSpaceToDelete(id);
     setIsDeleteDialogOpen(true);
   };
 
   const confirmDelete = async () => {
-    if (notebookToDelete) {
+    if (spaceToDelete) {
       try {
-        await NoteService.deleteNotebook(notebookToDelete);
-        setNotebookToDelete(null);
+        await SpaceService.deleteSpace(spaceToDelete);
+        setSpaceToDelete(null);
         setIsDeleteDialogOpen(false);
-        toast.success('笔记本已删除');
+        toast.success('空间已删除');
       } catch (_error) {
         toast.error('删除失败');
       }
@@ -200,7 +186,7 @@ export default function NotebooksPage() {
 
   const handleRename = async (id: string) => {
     if (!editName.trim()) return;
-    await NoteService.updateNotebook(id, { name: editName });
+    await SpaceService.updateSpace(id, { name: editName });
     setEditingId(null);
     toast.success('重命名成功');
   };
@@ -236,15 +222,8 @@ export default function NotebooksPage() {
     }
   };
 
-  const copyEmail = () => {
-    const email = 'link.lin.1987@gmail.com';
-    navigator.clipboard.writeText(email);
-    toast.success('邮箱已复制到剪切板');
-  };
-
   return (
     <div className="min-h-screen bg-background text-foreground selection:bg-primary/30 relative overflow-x-hidden font-sans flex flex-col">
-      {/* Visual Background Elements */}
       <div className="fixed inset-0 pointer-events-none z-0">
         <div className="absolute top-[-10%] left-[-5%] w-[45%] h-[45%] bg-primary/10 rounded-full blur-[120px] opacity-60 animate-pulse" />
         <div
@@ -262,46 +241,14 @@ export default function NotebooksPage() {
             className="flex items-center gap-3 group transition-transform hover:scale-105 active:scale-95"
           >
             <div className="w-7 h-7">
-              <img src="/logo.svg" alt="Time Note" className="w-full h-full drop-shadow-sm" />
+              <img src="/logo.svg" alt="Vocabulary Book" className="w-full h-full drop-shadow-sm" />
             </div>
             <span className="text-xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-foreground via-foreground/80 to-foreground/60 uppercase">
-              Time Note
+              Vocabulary Book
             </span>
           </Link>
 
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-2 mr-2 border-r border-border/40 pr-4 text-muted-foreground">
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                className="rounded-full w-10 h-10 hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <a
-                  href="https://github.com/linchen1987/timenote"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="GitHub 仓库"
-                >
-                  <Github className="w-5 h-5" />
-                </a>
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                className="rounded-full w-10 h-10 hover:text-foreground hover:bg-accent transition-colors"
-              >
-                <a
-                  href="https://link1987.site"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title="作者主页"
-                >
-                  <Globe className="w-5 h-5" />
-                </a>
-              </Button>
-            </div>
             <ThemeToggle />
             <Link to="/settings">
               <Button
@@ -318,7 +265,6 @@ export default function NotebooksPage() {
 
       <main className="relative z-10 pt-32 pb-20 px-6 flex-1">
         <div className="max-w-7xl mx-auto space-y-12">
-          {/* Header Section */}
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 animate-fade-in">
             <div className="space-y-4">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[10px] font-black tracking-widest uppercase">
@@ -326,10 +272,10 @@ export default function NotebooksPage() {
                 <span>My Workspace</span>
               </div>
               <h1 className="text-5xl sm:text-7xl font-black tracking-tighter leading-none uppercase">
-                笔记本
+                空间
               </h1>
               <p className="text-xl text-muted-foreground font-semibold max-w-2xl opacity-80">
-                管理和组织你的灵感空间。每一个笔记本，都是一个新的起点。
+                管理你的单词本空间。
               </p>
             </div>
 
@@ -362,7 +308,7 @@ export default function NotebooksPage() {
                 size="lg"
                 className="h-12 rounded-2xl gap-2 px-8 font-black shadow-lg shadow-primary/20 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0 transition-all duration-300"
               >
-                <Plus className="w-5 h-5" /> 新建笔记本
+                <Plus className="w-5 h-5" /> 新建空间
               </Button>
             </div>
           </div>
@@ -373,7 +319,7 @@ export default function NotebooksPage() {
                 <Input
                   autoFocus
                   className="h-14 text-lg rounded-xl flex-1 bg-background border-2 focus-visible:ring-primary"
-                  placeholder="输入笔记本名称..."
+                  placeholder="输入空间名称..."
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
@@ -397,17 +343,16 @@ export default function NotebooksPage() {
             </Card>
           )}
 
-          {/* Notebook Grid */}
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {notebooks?.map((nb) => (
+            {spaces?.map((space) => (
               <Card
-                key={nb.id}
+                key={space.id}
                 className="group relative bg-card/40 backdrop-blur-md border border-border/50 hover:border-primary/50 transition-all duration-500 rounded-[2.5rem] overflow-hidden hover:shadow-[0_20px_50px_-12px_rgba(var(--primary-rgb),0.15)] flex flex-col h-full"
               >
                 <CardHeader className="p-8 pb-4 relative">
                   <div className="flex items-start justify-between mb-6">
                     <div className="w-14 h-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-all duration-500 ease-spring">
-                      <NotebookIcon className="w-7 h-7" />
+                      <BookOpen className="w-7 h-7" />
                     </div>
 
                     <DropdownMenu>
@@ -422,15 +367,15 @@ export default function NotebooksPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-2xl p-2 min-w-[160px]">
                         <DropdownMenuItem
-                          onClick={() => handlePull(nb.id)}
+                          onClick={() => handlePull(space.id)}
                           className="rounded-xl gap-2 cursor-pointer"
                         >
                           <CloudDownload className="w-4 h-4" /> 从云端拉取
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => {
-                            setEditingId(nb.id);
-                            setEditName(nb.name);
+                            setEditingId(space.id);
+                            setEditName(space.name);
                           }}
                           className="rounded-xl gap-2 cursor-pointer"
                         >
@@ -438,7 +383,7 @@ export default function NotebooksPage() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive rounded-xl gap-2 cursor-pointer"
-                          onClick={() => handleDelete(nb.id)}
+                          onClick={() => handleDelete(space.id)}
                         >
                           <Trash2 className="w-4 h-4" /> 删除
                         </DropdownMenuItem>
@@ -446,19 +391,19 @@ export default function NotebooksPage() {
                     </DropdownMenu>
                   </div>
 
-                  {editingId === nb.id ? (
+                  {editingId === space.id ? (
                     <div className="space-y-3">
                       <Input
                         autoFocus
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && handleRename(nb.id)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleRename(space.id)}
                         className="rounded-xl border-2"
                       />
                       <div className="flex gap-2 justify-end">
                         <Button
                           size="sm"
-                          onClick={() => handleRename(nb.id)}
+                          onClick={() => handleRename(space.id)}
                           className="rounded-lg"
                         >
                           保存
@@ -476,15 +421,15 @@ export default function NotebooksPage() {
                   ) : (
                     <>
                       <Link
-                        to={`/s/${createNotebookToken(nb.id, nb.name)}`}
+                        to={`/spaces/${createSpaceToken(space.id, space.name)}`}
                         className="block group/title"
                       >
                         <CardTitle className="text-3xl font-black tracking-tight group-hover/title:text-primary transition-colors leading-tight line-clamp-2">
-                          {nb.name}
+                          {space.name}
                         </CardTitle>
                       </Link>
                       <p className="text-[10px] text-muted-foreground mt-4 font-black uppercase tracking-widest opacity-40">
-                        ID: {nb.id.slice(0, 8)}...
+                        ID: {space.id.slice(0, 8)}...
                       </p>
                     </>
                   )}
@@ -498,22 +443,22 @@ export default function NotebooksPage() {
                 >
                   <div className="flex items-center gap-2 bg-muted/30 px-3 py-1.5 rounded-full">
                     <Calendar className="w-3.5 h-3.5 opacity-70" />
-                    <span>{new Date(nb.createdAt).toLocaleDateString()}</span>
+                    <span>{new Date(space.createdAt).toLocaleDateString()}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Button
                       variant="ghost"
                       size="icon"
                       className="h-9 w-9 rounded-full hover:bg-primary/10 hover:text-primary transition-colors"
-                      onClick={() => handleSync(nb.id)}
-                      disabled={syncingId === nb.id}
+                      onClick={() => handleSync(space.id)}
+                      disabled={syncingId === space.id}
                       title="立即同步"
                     >
                       <RefreshCw
-                        className={`w-4 h-4 ${syncingId === nb.id ? 'animate-spin' : ''}`}
+                        className={`w-4 h-4 ${syncingId === space.id ? 'animate-spin' : ''}`}
                       />
                     </Button>
-                    <Link to={`/s/${createNotebookToken(nb.id, nb.name)}`}>
+                    <Link to={`/spaces/${createSpaceToken(space.id, space.name)}`}>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -527,16 +472,14 @@ export default function NotebooksPage() {
               </Card>
             ))}
 
-            {notebooks?.length === 0 && !isCreating && remoteNotebooks.length === 0 && (
+            {spaces?.length === 0 && !isCreating && remoteSpaces.length === 0 && (
               <div className="sm:col-span-2 lg:col-span-3 xl:col-span-4 flex flex-col items-center justify-center py-32 text-center bg-card/40 backdrop-blur-md rounded-[3rem] border-2 border-dashed border-border/60">
                 <div className="w-24 h-24 bg-primary/10 rounded-3xl flex items-center justify-center mb-8 text-primary/40">
-                  <NotebookIcon className="w-12 h-12" />
+                  <BookOpen className="w-12 h-12" />
                 </div>
-                <h3 className="text-3xl font-black tracking-tight mb-4">没有发现笔记本</h3>
+                <h3 className="text-3xl font-black tracking-tight mb-4">没有发现空间</h3>
                 <p className="text-muted-foreground max-w-sm mx-auto mb-10 font-medium leading-relaxed">
-                  灵感的第一步是为它准备一个家。
-                  <br />
-                  现在就创建你的第一个笔记本吧。
+                  现在就创建你的第一个单词本空间吧。
                 </p>
                 <Button
                   onClick={() => setIsCreating(true)}
@@ -549,16 +492,14 @@ export default function NotebooksPage() {
             )}
           </div>
 
-          {/* Remote Notebooks Section */}
-          {remoteNotebooks.filter((rnb) => !notebooks?.some((nb) => nb.id === rnb.id)).length >
-            0 && (
+          {remoteSpaces.filter((rsp) => !spaces?.some((sp) => sp.id === rsp.id)).length > 0 && (
             <div className="space-y-8 animate-in fade-in slide-in-from-bottom-8 duration-700">
               <div className="flex items-center gap-4 pt-8 border-t border-border/40">
                 <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500">
                   <Cloud className="w-6 h-6" />
                 </div>
                 <div className="flex-1">
-                  <h2 className="text-3xl font-black tracking-tight uppercase">云端笔记本</h2>
+                  <h2 className="text-3xl font-black tracking-tight uppercase">云端空间</h2>
                   <p className="text-muted-foreground font-semibold">
                     发现你在其他设备上存储的备份
                   </p>
@@ -567,29 +508,29 @@ export default function NotebooksPage() {
               </div>
 
               <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {remoteNotebooks
-                  .filter((rnb) => !notebooks?.some((nb) => nb.id === rnb.id))
-                  .map((rnb) => (
+                {remoteSpaces
+                  .filter((rsp) => !spaces?.some((sp) => sp.id === rsp.id))
+                  .map((rsp) => (
                     <Card
-                      key={rnb.id}
+                      key={rsp.id}
                       className="group bg-blue-500/5 backdrop-blur-md border border-blue-500/20 hover:border-blue-500/50 transition-all duration-500 rounded-[2.5rem] overflow-hidden flex flex-col h-full"
                     >
                       <CardHeader className="p-8">
                         <CardTitle className="text-2xl font-black tracking-tight line-clamp-2">
-                          {rnb.name}
+                          {rsp.name}
                         </CardTitle>
                         <p className="text-[10px] text-blue-500/60 mt-4 font-black uppercase tracking-widest">
-                          ID: {rnb.id.slice(0, 8)}...
+                          ID: {rsp.id.slice(0, 8)}...
                         </p>
                       </CardHeader>
                       <div className="flex-1" />
                       <CardFooter className="p-8 pt-0">
                         <Button
                           className="w-full h-12 rounded-xl gap-2 font-bold bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                          onClick={() => handleSync(rnb.id)}
-                          disabled={syncingId === rnb.id}
+                          onClick={() => handleSync(rsp.id)}
+                          disabled={syncingId === rsp.id}
                         >
-                          {syncingId === rnb.id ? (
+                          {syncingId === rsp.id ? (
                             <RefreshCw className="w-4 h-4 animate-spin" />
                           ) : (
                             <CloudDownload className="w-4 h-4" />
@@ -611,55 +552,11 @@ export default function NotebooksPage() {
             <div className="space-y-4">
               <Link to="/" className="flex items-center gap-3">
                 <img src="/logo.svg" alt="Logo" className="w-7 h-7" />
-                <span className="text-lg font-black tracking-tighter uppercase">Time Note</span>
+                <span className="text-lg font-black tracking-tighter uppercase">
+                  Vocabulary Book
+                </span>
               </Link>
-              <p className="text-sm font-bold text-muted-foreground/60 max-w-xs">
-                Built with passion for thinkers.
-                <br />
-                记录不仅仅是记录，更是与自己对话的过程。
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-8 items-center">
-              <button
-                type="button"
-                onClick={copyEmail}
-                className="flex items-center gap-2 text-sm font-black text-muted-foreground hover:text-foreground transition-colors uppercase tracking-widest"
-              >
-                <Mail className="w-4 h-4 text-primary" /> Email
-              </button>
-              <a
-                href="https://github.com/linchen1987/timenote"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm font-black text-muted-foreground hover:text-foreground transition-colors uppercase tracking-widest"
-              >
-                <Github className="w-4 h-4 text-primary" /> GitHub
-              </a>
-              <a
-                href="https://link1987.site"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm font-black text-muted-foreground hover:text-foreground transition-colors uppercase tracking-widest"
-              >
-                <Globe className="w-4 h-4 text-primary" /> Author
-              </a>
-            </div>
-          </div>
-          <div className="mt-16 pt-8 border-t border-border/10 flex justify-between items-center">
-            <p className="text-[10px] font-black tracking-widest text-muted-foreground/30 uppercase">
-              © 2026 Time Note. All rights reserved.
-            </p>
-            <div className="flex items-center gap-6">
-              <Link
-                to="/playground"
-                className="text-[10px] font-black tracking-widest text-muted-foreground/40 hover:text-primary transition-colors uppercase"
-              >
-                Playground
-              </Link>
-              <span className="text-[10px] font-black tracking-widest text-muted-foreground/20 uppercase">
-                Designed with ❤️ for clarity
-              </span>
+              <p className="text-sm font-bold text-muted-foreground/60 max-w-xs">单词本应用</p>
             </div>
           </div>
         </div>
@@ -672,7 +569,7 @@ export default function NotebooksPage() {
               确定要删除吗？
             </AlertDialogTitle>
             <AlertDialogDescription className="text-base font-medium">
-              此操作无法撤销。该笔记本及其所有笔记将从本地数据库中永久删除。
+              此操作无法撤销。该空间及其所有数据将从本地数据库中永久删除。
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-3">

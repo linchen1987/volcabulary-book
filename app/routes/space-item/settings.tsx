@@ -1,10 +1,21 @@
 'use client';
 
-import { AlertCircle, Check, Eye, EyeOff } from 'lucide-react';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { AlertCircle, Check, Eye, EyeOff, Save, Trash2 } from 'lucide-react';
 import { useState } from 'react';
-import { Link, useParams } from 'react-router';
+import { Link, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { PageHeader } from '~/components/page-header';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
@@ -14,11 +25,20 @@ import { useLocalStorage } from '~/hooks/use-local-storage';
 import { STORAGE_KEYS } from '~/lib/constants';
 import { DataToolsService } from '~/lib/services/data-tools-service';
 import { FsService, type StorageType } from '~/lib/services/fs-service';
+import { SpaceService } from '~/lib/services/note-service';
 import { parseSpaceId } from '~/lib/utils/token';
 
 export default function SpaceSettingsPage() {
   const { spaceToken } = useParams();
   const spaceId = parseSpaceId(spaceToken || '');
+  const navigate = useNavigate();
+
+  const space = useLiveQuery(() => SpaceService.getSpace(spaceId), [spaceId]);
+
+  const [spaceName, setSpaceName] = useState('');
+  const [isSavingName, setIsSavingName] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [storageType, setStorageType] = useLocalStorage(
     STORAGE_KEYS.STORAGE_TYPE,
@@ -45,6 +65,16 @@ export default function SpaceSettingsPage() {
 
   const [isClearingSyncEvents, setIsClearingSyncEvents] = useState(false);
 
+  useState(() => {
+    if (space && !spaceName) {
+      setSpaceName(space.name);
+    }
+  });
+
+  if (space && spaceName === '' && space.name) {
+    setSpaceName(space.name);
+  }
+
   const handleStorageTypeChange = (type: StorageType) => {
     setStorageType(type);
     FsService.setStorageType(type);
@@ -69,6 +99,38 @@ export default function SpaceSettingsPage() {
     }
   };
 
+  const handleSaveName = async () => {
+    if (!spaceName.trim()) {
+      toast.error('名称不能为空');
+      return;
+    }
+    setIsSavingName(true);
+    try {
+      await SpaceService.updateSpace(spaceId, { name: spaceName.trim() });
+      toast.success('名称已更新');
+    } catch (error) {
+      console.error(error);
+      toast.error('更新失败');
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleDeleteSpace = async () => {
+    setIsDeleting(true);
+    try {
+      await SpaceService.deleteSpace(spaceId);
+      toast.success('空间已删除');
+      navigate('/spaces');
+    } catch (error) {
+      console.error(error);
+      toast.error('删除失败');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
   const clearSyncEvents = async () => {
     setIsClearingSyncEvents(true);
     try {
@@ -88,6 +150,30 @@ export default function SpaceSettingsPage() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8">
         <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>空间信息</CardTitle>
+              <CardDescription>修改空间名称</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="spaceName">空间名称</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="spaceName"
+                    value={spaceName}
+                    onChange={(e) => setSpaceName(e.target.value)}
+                    placeholder="输入空间名称"
+                  />
+                  <Button onClick={handleSaveName} disabled={isSavingName}>
+                    <Save className="w-4 h-4 mr-1" />
+                    {isSavingName ? '保存中...' : '保存'}
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
           <Card>
             <CardHeader>
               <CardTitle>存储配置</CardTitle>
@@ -228,13 +314,13 @@ export default function SpaceSettingsPage() {
               )}
 
               {connectionStatus === 'success' && (
-                <div className="p-3 bg-green-100 text-green-700 rounded flex items-center gap-2 text-sm">
+                <div className="p-3 bg-green-100 text-green-700 rounded flex items-center gap-2 text-sm dark:bg-green-900/20 dark:text-green-400">
                   <Check className="w-4 h-4" /> 连接成功
                 </div>
               )}
 
               {connectionStatus === 'error' && (
-                <div className="p-3 bg-red-100 text-red-700 rounded flex items-center gap-2 text-sm">
+                <div className="p-3 bg-red-100 text-red-700 rounded flex items-center gap-2 text-sm dark:bg-red-900/20 dark:text-red-400">
                   <AlertCircle className="w-4 h-4" /> 连接失败
                 </div>
               )}
@@ -257,6 +343,23 @@ export default function SpaceSettingsPage() {
 
               <div className="h-px bg-border" />
 
+              <div className="space-y-4">
+                <h3 className="font-medium text-destructive">危险操作</h3>
+                <p className="text-sm text-muted-foreground">
+                  删除此空间及其所有单词数据，此操作不可撤销
+                </p>
+                <Button
+                  variant="destructive"
+                  onClick={() => setIsDeleteDialogOpen(true)}
+                  className="gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  删除空间
+                </Button>
+              </div>
+
+              <div className="h-px bg-border" />
+
               <Button variant="outline" asChild className="w-full sm:w-auto">
                 <Link to={`/spaces/${spaceToken}`}>返回空间</Link>
               </Button>
@@ -264,6 +367,27 @@ export default function SpaceSettingsPage() {
           </Card>
         </div>
       </div>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确定要删除此空间吗？</AlertDialogTitle>
+            <AlertDialogDescription>
+              此操作无法撤销。空间 "{space?.name}" 及其所有单词数据将被永久删除。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteSpace}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? '删除中...' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

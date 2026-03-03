@@ -1,5 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Book, ChevronDown, List, Monitor, Moon, PanelLeft, Settings, Sun } from 'lucide-react';
+import {
+  Book,
+  ChevronDown,
+  List,
+  Monitor,
+  Moon,
+  PanelLeft,
+  Settings,
+  Sun,
+  Target,
+} from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useTheme } from '~/components/theme-provider';
 import { Button } from '~/components/ui/button';
@@ -32,6 +42,7 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
   const currentSpace = spaces.find((sp) => sp.id === spaceId);
 
   const isAllWordsPage = location.pathname === `/spaces/${spaceToken}`;
+  const isQuizPage = location.pathname === `/spaces/${spaceToken}/quiz`;
   const isSettingsPage = location.pathname.endsWith('/settings');
 
   return (
@@ -126,6 +137,25 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
             <div className="flex items-center gap-1 min-w-0 flex-1">
               <div className="w-4" />
               <span className="truncate">所有单词</span>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            className={cn(
+              'group flex items-center gap-2 py-1.5 px-2 rounded-md transition-colors cursor-pointer text-sm font-medium w-full text-left',
+              isQuizPage
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+            )}
+            onClick={() => {
+              navigate(`/spaces/${spaceToken}/quiz`);
+              onClose?.();
+            }}
+          >
+            <div className="flex items-center gap-1 min-w-0 flex-1">
+              <Target className="w-4 h-4" />
+              <span className="truncate">测验</span>
             </div>
           </button>
         </div>

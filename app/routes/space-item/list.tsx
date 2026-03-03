@@ -1,36 +1,119 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Plus, Search as SearchIcon, X } from 'lucide-react';
+import { ArrowUpDown, BarChart3, Edit2, Plus, Search as SearchIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
+import { toast } from 'sonner';
 import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
+import type { SortField, SortOrder, WordStats } from '~/lib/services/note-service';
 import { SpaceService, WordService } from '~/lib/services/note-service';
+import type { Word } from '~/lib/types';
 import { parseSpaceId } from '~/lib/utils/token';
+
+function getTranslationPreview(word: Word): string {
+  if (word.translationGroups && word.translationGroups.length > 0) {
+    return word.translationGroups
+      .filter((g) => g.translation)
+      .map((g) => g.translation)
+      .join('; ');
+  }
+  return '';
+}
+
+const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: 'updatedAt', label: '更新时间' },
+  { value: 'createdAt', label: '创建时间' },
+  { value: 'level', label: '难度' },
+  { value: 'content', label: '内容' },
+];
 
 export default function WordListPage() {
   const { spaceToken } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const spaceId = parseSpaceId(spaceToken || '');
-  const q = searchParams.get('q') || '';
 
-  const [, setSearchQuery] = useState(q);
+  const q = searchParams.get('q') || '';
+  const levelFilter = searchParams.get('level') ? Number(searchParams.get('level')) : undefined;
+  const sortBy = (searchParams.get('sort') as SortField) || 'updatedAt';
+  const sortOrder = (searchParams.get('order') as SortOrder) || 'desc';
+
   const [inputQuery, setInputQuery] = useState(q);
+  const [newWord, setNewWord] = useState('');
 
   const space = useLiveQuery(() => SpaceService.getSpace(spaceId), [spaceId]);
-  const words = useLiveQuery(() => WordService.getWordsBySpace(spaceId), [spaceId]);
-  const wordCount = useLiveQuery(() => WordService.getWordCountBySpace(spaceId), [spaceId]);
+  const stats = useLiveQuery(() => WordService.getStats(spaceId), [spaceId]);
+  const words = useLiveQuery(
+    () =>
+      WordService.getWordsBySpace(spaceId, {
+        search: q,
+        levelFilter,
+        sortBy,
+        sortOrder,
+      }),
+    [spaceId, q, levelFilter, sortBy, sortOrder],
+  );
 
   const handleSearchSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    setSearchQuery(inputQuery);
+    const params = new URLSearchParams(searchParams);
     if (inputQuery) {
-      setSearchParams({ q: inputQuery });
+      params.set('q', inputQuery);
     } else {
-      setSearchParams({});
+      params.delete('q');
+    }
+    setSearchParams(params);
+  };
+
+  const clearSearch = () => {
+    setInputQuery('');
+    const params = new URLSearchParams(searchParams);
+    params.delete('q');
+    setSearchParams(params);
+  };
+
+  const setLevelFilter = (level?: number) => {
+    const params = new URLSearchParams(searchParams);
+    if (level !== undefined) {
+      params.set('level', String(level));
+    } else {
+      params.delete('level');
+    }
+    setSearchParams(params);
+  };
+
+  const toggleSortOrder = () => {
+    const params = new URLSearchParams(searchParams);
+    params.set('order', sortOrder === 'desc' ? 'asc' : 'desc');
+    setSearchParams(params);
+  };
+
+  const setSortBy = (sort: SortField) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('sort', sort);
+    setSearchParams(params);
+  };
+
+  const handleQuickAdd = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!newWord.trim()) {
+      toast.error('请输入单词内容');
+      return;
+    }
+
+    try {
+      await WordService.createWord(spaceId, {
+        content: newWord.trim(),
+        level: 1,
+      });
+      setNewWord('');
+      toast.success('单词已添加');
+    } catch (error) {
+      toast.error('添加失败，请重试');
+      console.error('Failed to add word:', error);
     }
   };
 
@@ -51,11 +134,7 @@ export default function WordListPage() {
             {inputQuery && (
               <button
                 type="button"
-                onClick={() => {
-                  setInputQuery('');
-                  setSearchQuery('');
-                  setSearchParams({});
-                }}
+                onClick={clearSearch}
                 className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 hover:bg-muted rounded-full text-muted-foreground transition-colors"
               >
                 <X className="w-3 h-3" />
@@ -66,42 +145,71 @@ export default function WordListPage() {
       </PageHeader>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8 space-y-6">
-        <Card className="border-none shadow-sm overflow-hidden bg-card p-6">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <p className="text-sm text-muted-foreground">单词数量</p>
-              <p className="text-2xl font-bold">{wordCount || 0}</p>
-            </div>
-            <Link to={`/spaces/${spaceToken}/new`}>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" /> 添加单词
+        <StatsCard stats={stats} levelFilter={levelFilter} setLevelFilter={setLevelFilter} />
+
+        <Card className="border-none shadow-sm overflow-hidden bg-card p-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <select
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value as SortField)}
+                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <Button variant="ghost" size="icon" onClick={toggleSortOrder} className="h-9 w-9">
+                <ArrowUpDown className={`w-4 h-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
               </Button>
-            </Link>
+            </div>
+
+            <div className="flex-1" />
+
+            <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
+              <Input
+                placeholder="输入单词..."
+                value={newWord}
+                onChange={(e) => setNewWord(e.target.value)}
+                className="w-48 h-9"
+              />
+              <Button type="submit" className="gap-2">
+                <Plus className="w-4 h-4" /> 添加
+              </Button>
+            </form>
           </div>
         </Card>
 
         <div className="space-y-4 pb-20">
           {words?.map((word) => (
-            <Link key={word.id} to={`/spaces/${spaceToken}/${word.id}`}>
-              <Card className="p-4 hover:shadow-md transition-all cursor-pointer">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="text-lg font-semibold">{word.content}</h3>
-                    {word.phonetic && (
-                      <p className="text-sm text-muted-foreground">{word.phonetic}</p>
-                    )}
-                    {word.translations && word.translations.length > 0 && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {word.translations.join('; ')}
-                      </p>
-                    )}
-                  </div>
+            <Card key={word.id} className="p-4 hover:shadow-md transition-all">
+              <div className="flex justify-between items-start">
+                <Link to={`/spaces/${spaceToken}/${word.id}`} className="min-w-0 flex-1">
+                  <h3 className="text-lg font-semibold truncate">{word.content}</h3>
+                  {word.phonetic && (
+                    <p className="text-sm text-muted-foreground">{word.phonetic}</p>
+                  )}
+                  {(() => {
+                    const preview = getTranslationPreview(word);
+                    return preview ? (
+                      <p className="text-sm text-muted-foreground mt-1 truncate">{preview}</p>
+                    ) : null;
+                  })()}
+                </Link>
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  <Link to={`/spaces/${spaceToken}/${word.id}?edit=true`}>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                  </Link>
                   <span className="px-2 py-1 bg-primary/10 rounded-full text-xs font-medium">
                     Lv.{word.level}
                   </span>
                 </div>
-              </Card>
-            </Link>
+              </div>
+            </Card>
           ))}
 
           {words?.length === 0 && (
@@ -109,14 +217,82 @@ export default function WordListPage() {
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <SearchIcon className="w-8 h-8 text-muted-foreground/50" />
               </div>
-              <h3 className="text-lg font-semibold">暂无单词</h3>
+              <h3 className="text-lg font-semibold">
+                {q || levelFilter !== undefined ? '没有找到匹配的单词' : '暂无单词'}
+              </h3>
               <p className="text-muted-foreground max-w-xs mx-auto">
-                点击上方按钮添加你的第一个单词
+                {q || levelFilter !== undefined
+                  ? '尝试修改搜索条件'
+                  : '点击上方按钮添加你的第一个单词'}
               </p>
+              {(q || levelFilter !== undefined) && (
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    clearSearch();
+                    setLevelFilter(undefined);
+                  }}
+                >
+                  清除筛选
+                </Button>
+              )}
             </div>
           )}
         </div>
       </div>
     </>
+  );
+}
+
+function StatsCard({
+  stats,
+  levelFilter,
+  setLevelFilter,
+}: {
+  stats?: WordStats;
+  levelFilter?: number;
+  setLevelFilter: (level?: number) => void;
+}) {
+  if (!stats) return null;
+
+  const levels = Object.keys(stats.byLevel)
+    .map(Number)
+    .sort((a, b) => a - b);
+
+  return (
+    <Card className="border-none shadow-sm overflow-hidden bg-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <BarChart3 className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm font-medium">统计</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setLevelFilter(undefined)}
+          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+            levelFilter === undefined
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-muted hover:bg-muted/80'
+          }`}
+        >
+          全部 ({stats.total})
+        </button>
+        {levels.map((level) => (
+          <button
+            key={level}
+            type="button"
+            onClick={() => setLevelFilter(level)}
+            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+              levelFilter === level
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted hover:bg-muted/80'
+            }`}
+          >
+            Lv.{level} ({stats.byLevel[level]})
+          </button>
+        ))}
+      </div>
+    </Card>
   );
 }

@@ -11,7 +11,7 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import { SpaceService, WordService } from '~/lib/services/note-service';
+import { SpaceService, WordService } from '~/lib/services/word-service';
 import { parseSpaceId } from '~/lib/utils/token';
 
 interface TranslationGroupItem {

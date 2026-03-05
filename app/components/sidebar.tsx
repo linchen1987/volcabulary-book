@@ -15,7 +15,7 @@ import { useTheme } from '~/components/theme-provider';
 import { Button } from '~/components/ui/button';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import { Separator } from '~/components/ui/separator';
-import { SpaceService } from '~/lib/services/note-service';
+import { SpaceService } from '~/lib/services/word-service';
 import { cn } from '~/lib/utils';
 import { createSpaceToken } from '~/lib/utils/token';
 import {

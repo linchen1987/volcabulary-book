@@ -1,4 +1,3 @@
-import Dexie from 'dexie';
 import { db, generateId } from '~/lib/db';
 import type { Space, Word } from '~/lib/types';
 
@@ -175,13 +174,82 @@ export const WordService = {
 
   async deleteWord(id: string): Promise<void> {
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      const word = await db.words.get(id);
+      if (word?.relatedWordIds) {
+        for (const relatedId of word.relatedWordIds) {
+          const relatedWord = await db.words.get(relatedId);
+          if (relatedWord?.relatedWordIds) {
+            const updatedIds = relatedWord.relatedWordIds.filter((rid) => rid !== id);
+            await db.words.update(relatedId, {
+              relatedWordIds: updatedIds.length > 0 ? updatedIds : undefined,
+              updatedAt: Date.now(),
+            });
+          }
+        }
+      }
       await db.words.delete(id);
     });
+  },
+
+  async addRelatedWord(wordId: string, relatedWordId: string): Promise<void> {
+    if (wordId === relatedWordId) return;
+
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      const word = await db.words.get(wordId);
+      const relatedWord = await db.words.get(relatedWordId);
+
+      if (!word || !relatedWord) return;
+
+      const wordRelatedIds = new Set(word.relatedWordIds || []);
+      wordRelatedIds.add(relatedWordId);
+
+      const relatedWordRelatedIds = new Set(relatedWord.relatedWordIds || []);
+      relatedWordRelatedIds.add(wordId);
+
+      await db.words.update(wordId, {
+        relatedWordIds: Array.from(wordRelatedIds),
+        updatedAt: Date.now(),
+      });
+
+      await db.words.update(relatedWordId, {
+        relatedWordIds: Array.from(relatedWordRelatedIds),
+        updatedAt: Date.now(),
+      });
+    });
+  },
+
+  async removeRelatedWord(wordId: string, relatedWordId: string): Promise<void> {
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      const word = await db.words.get(wordId);
+      const relatedWord = await db.words.get(relatedWordId);
+
+      if (word?.relatedWordIds) {
+        const updatedIds = word.relatedWordIds.filter((id) => id !== relatedWordId);
+        await db.words.update(wordId, {
+          relatedWordIds: updatedIds.length > 0 ? updatedIds : undefined,
+          updatedAt: Date.now(),
+        });
+      }
+
+      if (relatedWord?.relatedWordIds) {
+        const updatedIds = relatedWord.relatedWordIds.filter((id) => id !== wordId);
+        await db.words.update(relatedWordId, {
+          relatedWordIds: updatedIds.length > 0 ? updatedIds : undefined,
+          updatedAt: Date.now(),
+        });
+      }
+    });
+  },
+
+  async getRelatedWords(wordId: string): Promise<Word[]> {
+    const word = await db.words.get(wordId);
+    if (!word?.relatedWordIds || word.relatedWordIds.length === 0) {
+      return [];
+    }
+    return db.words.where('id').anyOf(word.relatedWordIds).toArray();
   },
 
   async getWordsByLevel(spaceId: string, level: number): Promise<Word[]> {
     return db.words.where({ spaceId, level }).reverse().sortBy('updatedAt');
   },
 };
-
-export const NoteService = SpaceService;

@@ -43,9 +43,9 @@ import {
 import { Input } from '~/components/ui/input';
 import { ExportService } from '~/lib/services/export-service';
 import { ImportService } from '~/lib/services/import-service';
-import { SpaceService } from '~/lib/services/note-service';
 import { SyncService } from '~/lib/services/sync/service';
 import type { BackupData } from '~/lib/services/sync/types';
+import { SpaceService } from '~/lib/services/word-service';
 import { createSpaceToken } from '~/lib/utils/token';
 
 export const meta: MetaFunction = () => {

@@ -22,8 +22,8 @@ import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Progress } from '~/components/ui/progress';
-import type { WordStats } from '~/lib/services/note-service';
-import { SpaceService, WordService } from '~/lib/services/note-service';
+import type { WordStats } from '~/lib/services/word-service';
+import { SpaceService, WordService } from '~/lib/services/word-service';
 import type { Word } from '~/lib/types';
 import { parseSpaceId } from '~/lib/utils/token';
 

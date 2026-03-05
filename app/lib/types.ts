@@ -23,6 +23,7 @@ export interface Word {
   level: number;
   phonetic?: string;
   audioUrl?: string;
+  relatedWordIds?: string[];
   createdAt: number;
   updatedAt: number;
 }

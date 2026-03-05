@@ -21,8 +21,8 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
-import { SpaceService, WordService } from '~/lib/services/note-service';
-import type { TranslationGroup, Word } from '~/lib/types';
+import { SpaceService, WordService } from '~/lib/services/word-service';
+import type { Word } from '~/lib/types';
 import { parseSpaceId } from '~/lib/utils/token';
 
 interface TranslationGroupItem {
@@ -66,6 +66,9 @@ export default function WordDetailPage() {
   const [description, setDescription] = useState('');
   const [translationGroups, setTranslationGroups] = useState<TranslationGroupItem[]>([]);
   const [level, setLevel] = useState(1);
+  const [relatedWords, setRelatedWords] = useState<Word[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Word[]>([]);
 
   useEffect(() => {
     if (word && searchParams.get('edit') === 'true') {
@@ -79,6 +82,12 @@ export default function WordDetailPage() {
       setSearchParams(searchParams);
     }
   }, [word, searchParams, setSearchParams]);
+
+  useEffect(() => {
+    if (wId) {
+      WordService.getRelatedWords(wId).then(setRelatedWords);
+    }
+  }, [wId]);
 
   const startEditing = () => {
     if (word) {
@@ -95,7 +104,7 @@ export default function WordDetailPage() {
     setIsEditing(false);
   };
 
-  const handleGroupChange = (groupId: string, field: 'translation', value: string) => {
+  const handleGroupChange = (groupId: string, _field: 'translation', value: string) => {
     setTranslationGroups(
       translationGroups.map((g) => {
         if (g.id !== groupId) return g;
@@ -209,6 +218,50 @@ export default function WordDetailPage() {
     } finally {
       setIsDeleting(false);
       setIsDeleteDialogOpen(false);
+    }
+  };
+
+  const handleSearchWords = async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results = await WordService.getWordsBySpace(spaceId, {
+      search: query,
+      limit: 10,
+    });
+
+    const filtered = results.filter(
+      (w) => w.id !== wId && !relatedWords.some((rw) => rw.id === w.id),
+    );
+    setSearchResults(filtered);
+  };
+
+  const handleAddRelatedWord = async (relatedWordId: string) => {
+    try {
+      await WordService.addRelatedWord(wId, relatedWordId);
+      const updated = await WordService.getRelatedWords(wId);
+      setRelatedWords(updated);
+      setSearchQuery('');
+      setSearchResults([]);
+      toast.success('已添加相关词');
+    } catch (error) {
+      console.error(error);
+      toast.error('添加失败');
+    }
+  };
+
+  const handleRemoveRelatedWord = async (relatedWordId: string) => {
+    try {
+      await WordService.removeRelatedWord(wId, relatedWordId);
+      const updated = await WordService.getRelatedWords(wId);
+      setRelatedWords(updated);
+      toast.success('已移除相关词');
+    } catch (error) {
+      console.error(error);
+      toast.error('移除失败');
     }
   };
 
@@ -366,6 +419,62 @@ export default function WordDetailPage() {
                 />
               </div>
 
+              <div className="space-y-3">
+                <Label>相关词</Label>
+                {relatedWords.length > 0 && (
+                  <div className="space-y-2">
+                    {relatedWords.map((rw) => (
+                      <div
+                        key={rw.id}
+                        className="flex items-center justify-between p-2 border rounded-md bg-muted/30"
+                      >
+                        <Link
+                          to={`/spaces/${spaceToken}/words/${rw.id}`}
+                          className="text-sm hover:underline flex-1"
+                          target="_blank"
+                        >
+                          {rw.content}
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveRelatedWord(rw.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="relative">
+                  <Input
+                    value={searchQuery}
+                    onChange={(e) => handleSearchWords(e.target.value)}
+                    placeholder="搜索单词添加为相关词..."
+                    className="w-full"
+                  />
+                  {searchResults.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                      {searchResults.map((result) => (
+                        <button
+                          key={result.id}
+                          type="button"
+                          onClick={() => handleAddRelatedWord(result.id)}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                        >
+                          <span className="font-medium">{result.content}</span>
+                          {result.phonetic && (
+                            <span className="text-muted-foreground text-xs">{result.phonetic}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <Button onClick={handleSave} disabled={isSubmitting} className="flex-1">
                   <Save className="w-4 h-4 mr-1" />
@@ -439,6 +548,23 @@ export default function WordDetailPage() {
                   </div>
                 );
               })()}
+
+              {relatedWords.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">相关词</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {relatedWords.map((rw) => (
+                      <Link
+                        key={rw.id}
+                        to={`/spaces/${spaceToken}/words/${rw.id}`}
+                        className="px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
+                      >
+                        {rw.content}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </Card>
         )}

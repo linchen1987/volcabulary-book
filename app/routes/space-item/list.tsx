@@ -9,8 +9,8 @@ import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
-import type { SortField, SortOrder, WordStats } from '~/lib/services/note-service';
-import { SpaceService, WordService } from '~/lib/services/note-service';
+import type { SortField, SortOrder, WordStats } from '~/lib/services/word-service';
+import { SpaceService, WordService } from '~/lib/services/word-service';
 import type { Word } from '~/lib/types';
 import { parseSpaceId } from '~/lib/utils/token';
 

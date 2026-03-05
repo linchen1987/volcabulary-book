@@ -25,7 +25,7 @@ import { useLocalStorage } from '~/hooks/use-local-storage';
 import { STORAGE_KEYS } from '~/lib/constants';
 import { DataToolsService } from '~/lib/services/data-tools-service';
 import { FsService, type StorageType } from '~/lib/services/fs-service';
-import { SpaceService } from '~/lib/services/note-service';
+import { SpaceService } from '~/lib/services/word-service';
 import { parseSpaceId } from '~/lib/utils/token';
 
 export default function SpaceSettingsPage() {

@@ -15,7 +15,7 @@ import { useTheme } from '~/components/theme-provider';
 import { Button } from '~/components/ui/button';
 import { ScrollArea } from '~/components/ui/scroll-area';
 import { Separator } from '~/components/ui/separator';
-import { SpaceService } from '~/lib/services/word-service';
+import { SpaceService, WordService } from '~/lib/services/word-service';
 import { cn } from '~/lib/utils';
 import { createSpaceToken } from '~/lib/utils/token';
 import {
@@ -40,6 +40,7 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
   const { spaceToken } = useParams();
   const spaces = useLiveQuery(() => SpaceService.getAllSpaces()) || [];
   const currentSpace = spaces.find((sp) => sp.id === spaceId);
+  const stats = useLiveQuery(() => WordService.getStats(spaceId), [spaceId]);
 
   const isAllWordsPage = location.pathname === `/spaces/${spaceToken}`;
   const isQuizPage = location.pathname === `/spaces/${spaceToken}/quiz`;
@@ -120,44 +121,72 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
       </div>
       <Separator className="bg-sidebar-border" />
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1 w-full max-w-full overflow-hidden">
-          <button
-            type="button"
-            className={cn(
-              'group flex items-center gap-2 py-1.5 px-2 rounded-md transition-colors cursor-pointer text-sm font-medium w-full text-left',
-              isAllWordsPage
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
-            )}
-            onClick={() => {
-              navigate(`/spaces/${spaceToken}`);
-              onClose?.();
-            }}
-          >
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <div className="w-4" />
-              <span className="truncate">所有单词</span>
-            </div>
-          </button>
+        <div className="p-2 space-y-4 w-full max-w-full overflow-hidden">
+          <div className="space-y-1">
+            <button
+              type="button"
+              className={cn(
+                'group flex items-center gap-2 py-1.5 px-2 rounded-md transition-colors cursor-pointer text-sm font-medium w-full text-left',
+                isAllWordsPage
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+              )}
+              onClick={() => {
+                navigate(`/spaces/${spaceToken}`);
+                onClose?.();
+              }}
+            >
+              <div className="flex items-center gap-1 min-w-0 flex-1">
+                <div className="w-4" />
+                <span className="truncate">所有单词</span>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            className={cn(
-              'group flex items-center gap-2 py-1.5 px-2 rounded-md transition-colors cursor-pointer text-sm font-medium w-full text-left',
-              isQuizPage
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
-            )}
-            onClick={() => {
-              navigate(`/spaces/${spaceToken}/quiz`);
-              onClose?.();
-            }}
-          >
-            <div className="flex items-center gap-1 min-w-0 flex-1">
-              <Target className="w-4 h-4" />
-              <span className="truncate">测验</span>
-            </div>
-          </button>
+            <button
+              type="button"
+              className={cn(
+                'group flex items-center gap-2 py-1.5 px-2 rounded-md transition-colors cursor-pointer text-sm font-medium w-full text-left',
+                isQuizPage
+                  ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                  : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
+              )}
+              onClick={() => {
+                navigate(`/spaces/${spaceToken}/quiz`);
+                onClose?.();
+              }}
+            >
+              <div className="flex items-center gap-1 min-w-0 flex-1">
+                <Target className="w-4 h-4" />
+                <span className="truncate">测验</span>
+              </div>
+            </button>
+          </div>
+
+          {stats && stats.total > 0 && (
+            <>
+              <Separator className="bg-sidebar-border" />
+              <div className="px-2 space-y-2">
+                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
+                  统计
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between text-sm px-1">
+                    <span className="text-muted-foreground">总单词</span>
+                    <span className="font-semibold">{stats.total}</span>
+                  </div>
+                  {Object.keys(stats.byLevel)
+                    .map(Number)
+                    .sort((a, b) => a - b)
+                    .map((level) => (
+                      <div key={level} className="flex items-center justify-between text-sm px-1">
+                        <span className="text-muted-foreground">Lv.{level}</span>
+                        <span className="font-medium">{stats.byLevel[level]}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </ScrollArea>
 

@@ -488,92 +488,97 @@ export default function WordDetailPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card className="p-6">
-            <div className="space-y-4">
-              <div>
-                <h2 className="text-2xl font-bold">{word.content}</h2>
-                {word.phonetic && <p className="text-muted-foreground">{word.phonetic}</p>}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="px-3 py-1 bg-primary/10 rounded-full text-sm font-medium">
-                  Level: {word.level}
-                </span>
-              </div>
-
-              {word.description && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-2">解释</h3>
-                  <p className="text-sm whitespace-pre-wrap">{word.description}</p>
+          <div className="space-y-6">
+            <Card className="p-6">
+              <div className="space-y-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-2xl font-bold">{word.content}</h2>
+                    {word.phonetic && <p className="text-muted-foreground mt-1">{word.phonetic}</p>}
+                  </div>
+                  <span className="px-3 py-1.5 bg-primary/10 rounded-full text-sm font-medium shrink-0">
+                    Lv.{word.level}
+                  </span>
                 </div>
-              )}
 
-              {(() => {
-                const groups = toTranslationGroupItems(word);
-                const hasContent = groups.some(
-                  (g) => g.translation || g.usages.some((u) => u.sentence),
-                );
-                if (!hasContent) return null;
-                return (
-                  <div>
-                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">翻译与例句</h3>
-                    <div className="space-y-4">
-                      {groups.map((group, i) => (
-                        <div key={group.id || i} className="space-y-2">
-                          {group.translation && (
-                            <div className="flex items-start gap-2">
-                              <span className="text-primary font-bold mt-0.5">{i + 1}.</span>
-                              <p className="text-sm">{group.translation}</p>
-                            </div>
-                          )}
-                          {group.usages.map(
-                            (usage, usageIndex) =>
-                              usage.sentence && (
-                                <div
-                                  key={`${group.id}-usage-${usageIndex}`}
-                                  className="ml-4 space-y-1 border-l-2 border-muted pl-3"
-                                >
-                                  <p className="text-sm">{usage.sentence}</p>
-                                  {usage.translation && (
-                                    <p className="text-sm text-muted-foreground">
-                                      {usage.translation}
-                                    </p>
-                                  )}
-                                </div>
-                              ),
-                          )}
-                        </div>
+                {word.description && (
+                  <div className="pt-4 border-t">
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">解释/笔记</h3>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {word.description}
+                    </p>
+                  </div>
+                )}
+
+                {(() => {
+                  const groups = toTranslationGroupItems(word);
+                  const hasContent = groups.some(
+                    (g) => g.translation || g.usages.some((u) => u.sentence),
+                  );
+                  if (!hasContent) return null;
+                  return (
+                    <div className="pt-4 border-t">
+                      <h3 className="text-sm font-semibold text-muted-foreground mb-3">
+                        翻译与例句
+                      </h3>
+                      <div className="space-y-4">
+                        {groups.map((group, i) => (
+                          <div key={group.id || i} className="space-y-3">
+                            {group.translation && (
+                              <div className="flex items-start gap-2">
+                                <span className="text-primary font-bold mt-0.5 shrink-0">
+                                  {i + 1}.
+                                </span>
+                                <p className="text-sm leading-relaxed">{group.translation}</p>
+                              </div>
+                            )}
+                            {group.usages.map(
+                              (usage, usageIndex) =>
+                                usage.sentence && (
+                                  <div
+                                    key={`${group.id}-usage-${usageIndex}`}
+                                    className="ml-4 space-y-1 border-l-2 border-primary/30 pl-3"
+                                  >
+                                    <p className="text-sm leading-relaxed">{usage.sentence}</p>
+                                    {usage.translation && (
+                                      <p className="text-sm text-muted-foreground leading-relaxed">
+                                        {usage.translation}
+                                      </p>
+                                    )}
+                                  </div>
+                                ),
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {relatedWords.length > 0 && (
+                  <div className="pt-4 border-t">
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">相关词</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {relatedWords.map((rw) => (
+                        <Link
+                          key={rw.id}
+                          to={`/spaces/${spaceToken}/${rw.id}`}
+                          className="px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
+                        >
+                          {rw.content}
+                        </Link>
                       ))}
                     </div>
                   </div>
-                );
-              })()}
+                )}
+              </div>
+            </Card>
 
-              {relatedWords.length > 0 && (
-                <div>
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3">相关词</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {relatedWords.map((rw) => (
-                      <Link
-                        key={rw.id}
-                        to={`/spaces/${spaceToken}/words/${rw.id}`}
-                        className="px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
-                      >
-                        {rw.content}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
+            <div className="text-xs text-muted-foreground space-y-1">
+              <p>创建于: {new Date(word.createdAt).toLocaleString()}</p>
+              <p>更新于: {new Date(word.updatedAt).toLocaleString()}</p>
             </div>
-          </Card>
-        )}
-
-        {!isEditing && (
-          <footer className="text-muted-foreground text-sm">
-            <p>创建于: {new Date(word.createdAt).toLocaleString()}</p>
-            <p>更新于: {new Date(word.updatedAt).toLocaleString()}</p>
-          </footer>
+          </div>
         )}
       </div>
 

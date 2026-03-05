@@ -1,17 +1,18 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowUpDown, BarChart3, Edit2, Plus, Search as SearchIcon, X } from 'lucide-react';
+import { ArrowUpDown, Edit2, Plus, Search as SearchIcon, X } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
-import { toast } from 'sonner';
+import { AddWordDialog } from '~/components/add-word-dialog';
 import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
-import type { SortField, SortOrder, WordStats } from '~/lib/services/word-service';
+import type { SortField, SortOrder } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
 import type { Word } from '~/lib/types';
+import { cn } from '~/lib/utils';
 import { parseSpaceId } from '~/lib/utils/token';
 
 function getTranslationPreview(word: Word): string {
@@ -42,7 +43,7 @@ export default function WordListPage() {
   const sortOrder = (searchParams.get('order') as SortOrder) || 'desc';
 
   const [inputQuery, setInputQuery] = useState(q);
-  const [newWord, setNewWord] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
   const space = useLiveQuery(() => SpaceService.getSpace(spaceId), [spaceId]);
   const stats = useLiveQuery(() => WordService.getStats(spaceId), [spaceId]);
@@ -97,26 +98,6 @@ export default function WordListPage() {
     setSearchParams(params);
   };
 
-  const handleQuickAdd = async (e?: React.FormEvent) => {
-    e?.preventDefault();
-    if (!newWord.trim()) {
-      toast.error('请输入单词内容');
-      return;
-    }
-
-    try {
-      await WordService.createWord(spaceId, {
-        content: newWord.trim(),
-        level: 1,
-      });
-      setNewWord('');
-      toast.success('单词已添加');
-    } catch (error) {
-      toast.error('添加失败，请重试');
-      console.error('Failed to add word:', error);
-    }
-  };
-
   if (!space) return null;
 
   return (
@@ -145,10 +126,45 @@ export default function WordListPage() {
       </PageHeader>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8 space-y-6">
-        <StatsCard stats={stats} levelFilter={levelFilter} setLevelFilter={setLevelFilter} />
-
         <Card className="border-none shadow-sm overflow-hidden bg-card p-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              {stats && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setLevelFilter(undefined)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                      levelFilter === undefined
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80',
+                    )}
+                  >
+                    全部 ({stats.total})
+                  </button>
+                  {Object.keys(stats.byLevel)
+                    .map(Number)
+                    .sort((a, b) => a - b)
+                    .map((level) => (
+                      <button
+                        key={level}
+                        type="button"
+                        onClick={() => setLevelFilter(level)}
+                        className={cn(
+                          'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
+                          levelFilter === level
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted hover:bg-muted/80',
+                        )}
+                      >
+                        Lv.{level} ({stats.byLevel[level]})
+                      </button>
+                    ))}
+                </>
+              )}
+            </div>
+
             <div className="flex items-center gap-2">
               <select
                 value={sortBy}
@@ -165,20 +181,6 @@ export default function WordListPage() {
                 <ArrowUpDown className={`w-4 h-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
               </Button>
             </div>
-
-            <div className="flex-1" />
-
-            <form onSubmit={handleQuickAdd} className="flex items-center gap-2">
-              <Input
-                placeholder="输入单词..."
-                value={newWord}
-                onChange={(e) => setNewWord(e.target.value)}
-                className="w-48 h-9"
-              />
-              <Button type="submit" className="gap-2">
-                <Plus className="w-4 h-4" /> 添加
-              </Button>
-            </form>
           </div>
         </Card>
 
@@ -223,7 +225,7 @@ export default function WordListPage() {
               <p className="text-muted-foreground max-w-xs mx-auto">
                 {q || levelFilter !== undefined
                   ? '尝试修改搜索条件'
-                  : '点击上方按钮添加你的第一个单词'}
+                  : '点击右下角按钮添加你的第一个单词'}
               </p>
               {(q || levelFilter !== undefined) && (
                 <Button
@@ -241,58 +243,17 @@ export default function WordListPage() {
           )}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => setIsAddDialogOpen(true)}
+        className="fixed right-6 bottom-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95 z-50 flex items-center justify-center"
+        aria-label="添加单词"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      <AddWordDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} spaceId={spaceId} />
     </>
-  );
-}
-
-function StatsCard({
-  stats,
-  levelFilter,
-  setLevelFilter,
-}: {
-  stats?: WordStats;
-  levelFilter?: number;
-  setLevelFilter: (level?: number) => void;
-}) {
-  if (!stats) return null;
-
-  const levels = Object.keys(stats.byLevel)
-    .map(Number)
-    .sort((a, b) => a - b);
-
-  return (
-    <Card className="border-none shadow-sm overflow-hidden bg-card p-4">
-      <div className="flex items-center gap-2 mb-3">
-        <BarChart3 className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-medium">统计</span>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setLevelFilter(undefined)}
-          className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-            levelFilter === undefined
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-muted hover:bg-muted/80'
-          }`}
-        >
-          全部 ({stats.total})
-        </button>
-        {levels.map((level) => (
-          <button
-            key={level}
-            type="button"
-            onClick={() => setLevelFilter(level)}
-            className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-              levelFilter === level
-                ? 'bg-primary text-primary-foreground'
-                : 'bg-muted hover:bg-muted/80'
-            }`}
-          >
-            Lv.{level} ({stats.byLevel[level]})
-          </button>
-        ))}
-      </div>
-    </Card>
   );
 }

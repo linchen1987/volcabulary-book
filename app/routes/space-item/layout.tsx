@@ -79,7 +79,7 @@ export default function SpaceLayout() {
         style={{ width: isDesktopSidebarOpen ? `${sidebarWidth + 8}px` : '0px' }}
       >
         <div style={{ width: `${sidebarWidth}px` }}>
-          <Sidebar spaceId={spaceId} isPWA={isPWA} onClose={() => setDesktopSidebarOpen(false)} />
+          <Sidebar spaceId={spaceId} isPWA={isPWA} />
         </div>
         <button
           type="button"

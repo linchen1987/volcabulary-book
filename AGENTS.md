@@ -1,50 +1,91 @@
 # Project Documentation
 
-## Debugging & Runtime Guidelines
-- **Trust Runtime Errors Over Documentation**: When runtime validation fails (e.g., `invalid_type`, `missing_property`), prioritize the properties explicitly demanded by the error message over high-level documentation or abstraction layers.
-- **Trace Source of Truth**: For complex libraries or SDKs with multiple abstraction layers, verify the underlying type definitions (e.g., in `node_modules/**/*.d.ts`) rather than relying solely on top-level Typescript interfaces or online docs. If a library enforces a strict schema at a lower level (e.g., specific property names like `input` vs `args`), explicitly conform to that structure in your data preparation logic, even if high-level helpers exist.
-- **Prioritize Schema Documentation**: When debugging structural or validation errors, prioritize searching for the **latest** data schema, object model, or type definition documentation over high-level feature guides. Ensure documentation matches the installed library version.
-- **Ask for Help**: If specific documentation (like schema definitions) cannot be located, explicitly ask the user for assistance or links to relevant documentation to avoid wasting time on assumptions
+## Overview
+Vocabulary Book - A web application for recording and learning English words. Built with React 19, React Router 7, Dexie (IndexedDB), Tailwind CSS v4, and Cloudflare Workers.
 
-## React Router DOCS
-- Routing https://reactrouter.com/start/framework/routing 
+## Code Style Guidelines
 
-## Tech Stack
-- pnpm
-- react-router
-- tailwind css v4
+### Formatting (Enforced by Biome)
+- **Quotes**: Single quotes for strings (`'text'`)
+- **Semicolons**: Always include semicolons
+- **Indentation**: 2 spaces
+- **Line Width**: 100 characters max
+- **Trailing Commas**: As needed
+- **Import Organization**: Biome automatically organizes imports
 
-## Rules
-- 除非用户要求，否则不要自动编辑此文件。
-- **Git Operations**: 除非用户明确要求，否则绝对不要自动执行 git commit, git push 等操作。
-- comment 不要添加修改说明，只添加当前代码的解释。
-- localstorage 在统一文件中管理key. 除去通用key(比如 theme) 都需要使用相同的前缀
-- **Import & Quotes**: Always use double quotes `'` and `~/` alias for internal imports (relative to `app/`). Always include trailing semicolons `;`.
+### State Management
+- **Local State**: Use React's `useState` for component-local state
+- **Server State**: Use Dexie with `useLiveQuery` hook for database queries
+- **Global State**: Use Zustand for cross-component state
+- **URL State**: Use React Router's `useSearchParams` for filter/pagination state
+
 
 ## Project Structure
-- `app/` - Main application code
-  - `routes/` - Route components (pages)
-    - `notebooks.tsx` - Notebook list (Home)
-    - `notebook-notes.tsx` - Note list in a notebook
-    - `notebook-notedetail.tsx` - Note editor/view
-    - `tags.tsx` - Tag management/list
-    - `manifest.tsx` - Web app manifest
-    - `api.fs.ts` - File system API endpoints
-    - `playground/` - Feature testing and demos
-      - `webdav.tsx` - WebDAV integration testing page
-  - `components/` - Reusable UI components
-    - `ui/` - Shadcn UI components
-    - `editor/` - Markdown editor components
-  - `services/` - External services (e.g., File System client)
-  - `hooks/` - Custom React hooks
-  - `lib/` - Logic, state, and utilities
-    - `db.ts` - Dexie database schema and instance
-    - `services/` - Core business logic services (Note, Menu, Import/Export)
-    - `utils/` - Shared utility functions
-    - `constants.ts` - Application constants
-  - `root.tsx` - Root layout and context providers
-  - `routes.ts` - React Router route configuration
-- `wrangler.jsonc` - Cloudflare configuration
+
+```
+app/
+├── components/          # Reusable UI components
+│   ├── ui/             # Base UI components (Radix + Tailwind)
+│   └── *.tsx           # Feature components
+├── hooks/              # Custom React hooks
+├── lib/                # Core utilities and business logic
+│   ├── db.ts          # Dexie database setup
+│   ├── types.ts       # TypeScript type definitions
+│   ├── constants.ts   # Application constants
+│   ├── utils.ts       # Utility functions
+│   ├── services/      # Business logic services
+│   ├── stores/        # Zustand stores
+│   └── utils/         # Helper utilities
+├── routes/             # React Router route components
+├── services/           # External service clients
+├── root.tsx           # App root component
+├── routes.ts          # Route configuration
+└── entry.server.tsx   # Server entry point
+```
+
+## Tech Stack
+
+### Core Technologies
+- **Runtime**: Node.js (development), Cloudflare Workers (production)
+- **Package Manager**: pnpm v10.28.0
+- **Framework**: React 19 + React Router 7 (SSR enabled)
+- **Language**: TypeScript 5.9 (strict mode)
+- **Styling**: Tailwind CSS v4
+- **Database**: Dexie (IndexedDB wrapper)
+
+### Key Libraries
+- **UI Components**: Radix UI primitives
+- **State**: Zustand
+- **Notifications**: Sonner
+- **Icons**: Lucide React
+- **ID Generation**: nanoid
+- **Sync**: WebDAV, S3
+
+### Development Tools
+- **Bundler**: Vite 7
+- **Linter**: Biome 2.3
+- **Testing**: Vitest 4
+- **Type Checking**: TypeScript
+
+## Architecture Notes
+
+### Data Isolation
+- Different spaces have isolated data
+- All data queries are scoped to a specific `spaceId`
+- Sync events track changes per space
+
+### LocalStorage Management
+- All localStorage keys must be managed in `app/lib/constants.ts`
+- Use `STORAGE_KEYS` constant object
+- General keys (like `theme`) don't need prefix
+- Application-specific keys must use `@vocab-book/` prefix
+
+## React Router 7 Resources
+- Routing: https://reactrouter.com/start/framework/routing
+- Data Loading: https://reactrouter.com/start/framework/data-loading
+- Actions: https://reactrouter.com/start/framework/actions
 
 ## Business Logic
-- 不同的 space 中的数据是隔离的
+- **Space Isolation**: Different spaces contain completely isolated data
+- **Word Management**: Words belong to spaces and have levels (difficulty)
+- **Sync Support**: Changes are tracked via sync events for WebDAV/S3 sync

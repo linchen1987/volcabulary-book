@@ -10,6 +10,7 @@ export const STORAGE_KEYS = {
   S3_ACCESS_KEY_ID: '@vocab-book/s3_access_key_id',
   S3_SECRET_ACCESS_KEY: '@vocab-book/s3_secret_access_key',
   S3_REGION: '@vocab-book/s3_region',
+  LAST_SYNC_TIME_PREFIX: '@vocab-book/last_sync_',
   SIDEBAR_WIDTH: '@vocab-book/sidebar_width',
   DESKTOP_SIDEBAR_OPEN: '@vocab-book/desktop_sidebar_open',
 } as const;

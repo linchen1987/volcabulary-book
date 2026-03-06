@@ -1,7 +1,22 @@
+import { STORAGE_KEYS } from '~/lib/constants';
 import { db } from '~/lib/db';
 import { FsService } from '~/lib/services/fs-service';
 import { DataService } from '../data-service';
 import { type BackupData, SYNC_ROOT_PATH } from './types';
+
+const getLastSyncTimeKey = (spaceId: string) => `${STORAGE_KEYS.LAST_SYNC_TIME_PREFIX}${spaceId}`;
+
+const setLastSyncTime = (spaceId: string) => {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(getLastSyncTimeKey(spaceId), Date.now().toString());
+  }
+};
+
+export const getLastSyncTime = (spaceId: string): number | undefined => {
+  if (typeof window === 'undefined') return undefined;
+  const time = localStorage.getItem(getLastSyncTimeKey(spaceId));
+  return time ? parseInt(time, 10) : undefined;
+};
 
 let isInitialized = false;
 
@@ -53,6 +68,7 @@ export const SyncService = {
 
     await SyncService.pull(spaceId);
     await SyncService.push(spaceId);
+    setLastSyncTime(spaceId);
   },
 
   async pull(spaceId: string) {
@@ -74,6 +90,8 @@ export const SyncService = {
         `Pull completed with ${result.errors.length} error(s): ${result.errors.join(', ')}`,
       );
     }
+
+    setLastSyncTime(spaceId);
   },
 
   async push(spaceId: string) {
@@ -89,13 +107,6 @@ export const SyncService = {
     await FsService.write(path, content);
 
     await db.syncEvents.where('spaceId').equals(spaceId).delete();
-  },
-
-  getRemoteNotebooks: function () {
-    return this.getRemoteSpaces();
-  },
-
-  syncNotebook: function (spaceId: string) {
-    return this.syncSpace(spaceId);
+    setLastSyncTime(spaceId);
   },
 };

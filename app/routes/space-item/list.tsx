@@ -1,8 +1,8 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowUpDown, Edit2, Plus, Search as SearchIcon, X } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowUpDown, BookOpen, Edit2, Plus, Search as SearchIcon, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { AddWordDialog } from '~/components/add-word-dialog';
 import { PageHeader } from '~/components/page-header';
@@ -16,13 +16,7 @@ import { cn } from '~/lib/utils';
 import { parseSpaceId } from '~/lib/utils/token';
 
 function getTranslationPreview(word: Word): string {
-  if (word.translationGroups && word.translationGroups.length > 0) {
-    return word.translationGroups
-      .filter((g) => g.translation)
-      .map((g) => g.translation)
-      .join('; ');
-  }
-  return '';
+  return word.translation || '';
 }
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -44,6 +38,20 @@ export default function WordListPage() {
 
   const [inputQuery, setInputQuery] = useState(q);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [visibleTranslations, setVisibleTranslations] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !isAddDialogOpen) {
+        const target = e.target as HTMLElement;
+        if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        setIsAddDialogOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isAddDialogOpen]);
 
   const space = useLiveQuery(() => SpaceService.getSpace(spaceId), [spaceId]);
   const stats = useLiveQuery(() => WordService.getStats(spaceId), [spaceId]);
@@ -96,6 +104,18 @@ export default function WordListPage() {
     const params = new URLSearchParams(searchParams);
     params.set('sort', sort);
     setSearchParams(params);
+  };
+
+  const toggleTranslation = (wordId: string) => {
+    setVisibleTranslations((prev) => {
+      const next = new Set(prev);
+      if (next.has(wordId)) {
+        next.delete(wordId);
+      } else {
+        next.add(wordId);
+      }
+      return next;
+    });
   };
 
   if (!space) return null;
@@ -185,34 +205,52 @@ export default function WordListPage() {
         </Card>
 
         <div className="space-y-4 pb-20">
-          {words?.map((word) => (
-            <Card key={word.id} className="p-4 hover:shadow-md transition-all">
-              <div className="flex justify-between items-start">
-                <Link to={`/spaces/${spaceToken}/${word.id}`} className="min-w-0 flex-1">
-                  <h3 className="text-lg font-semibold truncate">{word.content}</h3>
-                  {word.phonetic && (
-                    <p className="text-sm text-muted-foreground">{word.phonetic}</p>
-                  )}
-                  {(() => {
-                    const preview = getTranslationPreview(word);
-                    return preview ? (
-                      <p className="text-sm text-muted-foreground mt-1 truncate">{preview}</p>
-                    ) : null;
-                  })()}
-                </Link>
-                <div className="flex items-center gap-2 shrink-0 ml-2">
-                  <Link to={`/spaces/${spaceToken}/${word.id}?edit=true`}>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Edit2 className="w-4 h-4" />
-                    </Button>
+          {words?.map((word) => {
+            const isTranslationVisible = visibleTranslations.has(word.id);
+            const translation = getTranslationPreview(word);
+
+            return (
+              <Card key={word.id} className="p-4 hover:shadow-md transition-all">
+                <div className="flex justify-between items-center gap-3">
+                  <Link
+                    to={`/spaces/${spaceToken}/${word.id}`}
+                    className="min-w-0 flex-1 flex items-baseline gap-2"
+                  >
+                    <h3 className="text-lg font-semibold truncate">{word.content}</h3>
+                    {word.phonetic && (
+                      <span className="text-sm text-muted-foreground shrink-0">
+                        {word.phonetic}
+                      </span>
+                    )}
+                    {isTranslationVisible && translation && (
+                      <span className="text-sm text-muted-foreground truncate">{translation}</span>
+                    )}
                   </Link>
-                  <span className="px-2 py-1 bg-primary/10 rounded-full text-xs font-medium">
-                    Lv.{word.level}
-                  </span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {translation && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => toggleTranslation(word.id)}
+                        className={cn('h-8 w-8', isTranslationVisible && 'text-primary')}
+                        title={isTranslationVisible ? '隐藏翻译' : '显示翻译'}
+                      >
+                        <BookOpen className="w-4 h-4" />
+                      </Button>
+                    )}
+                    <Link to={`/spaces/${spaceToken}/${word.id}?edit=true`}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <Edit2 className="w-4 h-4" />
+                      </Button>
+                    </Link>
+                    <span className="px-2 py-1 bg-primary/10 rounded-full text-xs font-medium">
+                      Lv.{word.level}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
+              </Card>
+            );
+          })}
 
           {words?.length === 0 && (
             <div className="flex flex-col items-center justify-center py-32 text-center">

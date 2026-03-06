@@ -14,6 +14,7 @@ import { Toaster } from '~/components/ui/sonner';
 import { useServiceWorkerUpdate } from '~/hooks/use-service-worker-update';
 
 export const links: Route.LinksFunction = () => [
+  { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
   { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
   {
     rel: 'preconnect',

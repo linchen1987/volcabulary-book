@@ -5,21 +5,16 @@ export interface Space {
   updatedAt: number;
 }
 
-export interface TranslationGroup {
-  id: string;
-  translation: string;
-  usages?: Array<{
-    sentence: string;
-    translation?: string;
-  }>;
-}
-
 export interface Word {
   id: string;
   spaceId: string;
   content: string;
   description?: string;
-  translationGroups?: TranslationGroup[];
+  translation?: string;
+  usages?: Array<{
+    sentence: string;
+    translation?: string;
+  }>;
   level: number;
   phonetic?: string;
   audioUrl?: string;

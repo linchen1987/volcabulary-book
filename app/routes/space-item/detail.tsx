@@ -25,25 +25,21 @@ import { SpaceService, WordService } from '~/lib/services/word-service';
 import type { Word } from '~/lib/types';
 import { parseSpaceId } from '~/lib/utils/token';
 
-interface TranslationGroupItem {
+interface UsageItem {
   id: string;
+  sentence: string;
   translation: string;
-  usages: Array<{ sentence: string; translation: string }>;
 }
 
-function toTranslationGroupItems(word?: Word): TranslationGroupItem[] {
-  if (word?.translationGroups && word.translationGroups.length > 0) {
-    return word.translationGroups.map((g) => ({
-      id: g.id,
-      translation: g.translation,
-      usages: g.usages?.map((u) => ({
-        sentence: u.sentence,
-        translation: u.translation || '',
-      })) || [{ sentence: '', translation: '' }],
+function toUsageItems(word?: Word): UsageItem[] {
+  if (word?.usages && word.usages.length > 0) {
+    return word.usages.map((u, i) => ({
+      id: String(i),
+      sentence: u.sentence,
+      translation: u.translation || '',
     }));
   }
-
-  return [{ id: nanoid(), translation: '', usages: [{ sentence: '', translation: '' }] }];
+  return [{ id: '0', sentence: '', translation: '' }];
 }
 
 export default function WordDetailPage() {
@@ -64,7 +60,8 @@ export default function WordDetailPage() {
   const [content, setContent] = useState('');
   const [phonetic, setPhonetic] = useState('');
   const [description, setDescription] = useState('');
-  const [translationGroups, setTranslationGroups] = useState<TranslationGroupItem[]>([]);
+  const [translation, setTranslation] = useState('');
+  const [usages, setUsages] = useState<UsageItem[]>([]);
   const [level, setLevel] = useState(1);
   const [relatedWords, setRelatedWords] = useState<Word[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +72,8 @@ export default function WordDetailPage() {
       setContent(word.content);
       setPhonetic(word.phonetic || '');
       setDescription(word.description || '');
-      setTranslationGroups(toTranslationGroupItems(word));
+      setTranslation(word.translation || '');
+      setUsages(toUsageItems(word));
       setLevel(word.level);
       setIsEditing(true);
       searchParams.delete('edit');
@@ -94,7 +92,8 @@ export default function WordDetailPage() {
       setContent(word.content);
       setPhonetic(word.phonetic || '');
       setDescription(word.description || '');
-      setTranslationGroups(toTranslationGroupItems(word));
+      setTranslation(word.translation || '');
+      setUsages(toUsageItems(word));
       setLevel(word.level);
       setIsEditing(true);
     }
@@ -104,62 +103,22 @@ export default function WordDetailPage() {
     setIsEditing(false);
   };
 
-  const handleGroupChange = (groupId: string, _field: 'translation', value: string) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        return { ...g, translation: value };
+  const handleUsageChange = (usageId: string, field: 'sentence' | 'translation', value: string) => {
+    setUsages(
+      usages.map((u) => {
+        if (u.id !== usageId) return u;
+        return { ...u, [field]: value };
       }),
     );
   };
 
-  const handleUsageChange = (
-    groupId: string,
-    usageIndex: number,
-    field: 'sentence' | 'translation',
-    value: string,
-  ) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        const newUsages = g.usages.map((u, i) => (i === usageIndex ? { ...u, [field]: value } : u));
-        return { ...g, usages: newUsages };
-      }),
-    );
+  const addUsage = () => {
+    setUsages([...usages, { id: nanoid(), sentence: '', translation: '' }]);
   };
 
-  const addUsageToGroup = (groupId: string) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        return { ...g, usages: [...g.usages, { sentence: '', translation: '' }] };
-      }),
-    );
-  };
-
-  const removeUsageFromGroup = (groupId: string, usageIndex: number) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        if (g.usages.length <= 1) return g;
-        return {
-          ...g,
-          usages: g.usages.filter((_, i) => i !== usageIndex),
-        };
-      }),
-    );
-  };
-
-  const addTranslationGroup = () => {
-    setTranslationGroups([
-      ...translationGroups,
-      { id: nanoid(), translation: '', usages: [{ sentence: '', translation: '' }] },
-    ]);
-  };
-
-  const removeTranslationGroup = (id: string) => {
-    if (translationGroups.length > 1) {
-      setTranslationGroups(translationGroups.filter((g) => g.id !== id));
+  const removeUsage = (id: string) => {
+    if (usages.length > 1) {
+      setUsages(usages.filter((u) => u.id !== id));
     }
   };
 
@@ -171,28 +130,19 @@ export default function WordDetailPage() {
 
     setIsSubmitting(true);
     try {
-      const filteredGroups = translationGroups
-        .filter((g) => g.translation.trim() || g.usages.some((u) => u.sentence.trim()))
-        .map((g) => {
-          const filteredUsages = g.usages
-            .filter((u) => u.sentence.trim())
-            .map((u) => ({
-              sentence: u.sentence.trim(),
-              translation: u.translation.trim() || undefined,
-            }));
-
-          return {
-            id: g.id,
-            translation: g.translation.trim(),
-            usages: filteredUsages.length > 0 ? filteredUsages : undefined,
-          };
-        });
+      const filteredUsages = usages
+        .filter((u) => u.sentence.trim())
+        .map((u) => ({
+          sentence: u.sentence.trim(),
+          translation: u.translation.trim() || undefined,
+        }));
 
       await WordService.updateWord(wId, {
         content: content.trim(),
         phonetic: phonetic.trim() || undefined,
         description: description.trim() || undefined,
-        translationGroups: filteredGroups.length > 0 ? filteredGroups : undefined,
+        translation: translation.trim() || undefined,
+        usages: filteredUsages.length > 0 ? filteredUsages : undefined,
         level,
       });
 
@@ -311,115 +261,6 @@ export default function WordDetailPage() {
               </div>
 
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label>翻译组</Label>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={addTranslationGroup}
-                    className="h-7 gap-1"
-                  >
-                    <Plus className="w-3 h-3" /> 添加
-                  </Button>
-                </div>
-                {translationGroups.map((group) => (
-                  <div key={group.id} className="space-y-2 p-4 border rounded-lg bg-muted/30">
-                    <Input
-                      value={group.translation}
-                      onChange={(e) => handleGroupChange(group.id, 'translation', e.target.value)}
-                      placeholder="翻译"
-                      className="font-medium"
-                    />
-                    {group.usages.map((usage, usageIndex) => (
-                      <div
-                        key={`${group.id}-usage-${usageIndex}`}
-                        className="space-y-2 pl-3 border-l-2 border-muted"
-                      >
-                        <Input
-                          value={usage.sentence}
-                          onChange={(e) =>
-                            handleUsageChange(group.id, usageIndex, 'sentence', e.target.value)
-                          }
-                          placeholder={`例句 ${usageIndex + 1}（可选）`}
-                        />
-                        <Input
-                          value={usage.translation}
-                          onChange={(e) =>
-                            handleUsageChange(group.id, usageIndex, 'translation', e.target.value)
-                          }
-                          placeholder="例句翻译（可选）"
-                          className="text-muted-foreground"
-                        />
-                        {group.usages.length > 1 && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeUsageFromGroup(group.id, usageIndex)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="w-3 h-3 mr-1" /> 删除例句
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => addUsageToGroup(group.id)}
-                      className="w-full"
-                    >
-                      <Plus className="w-3 h-3 mr-1" /> 添加例句
-                    </Button>
-                    {translationGroups.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeTranslationGroup(group.id)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="w-3 h-3 mr-1" /> 删除此组
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="phonetic">音标</Label>
-                <Input
-                  id="phonetic"
-                  value={phonetic}
-                  onChange={(e) => setPhonetic(e.target.value)}
-                  placeholder="/ˈɪŋɡlɪʃ/"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="level">记忆难度</Label>
-                <Input
-                  id="level"
-                  type="number"
-                  min={0}
-                  max={10}
-                  value={level}
-                  onChange={(e) => setLevel(Number(e.target.value) || 1)}
-                  className="w-24"
-                />
-                <p className="text-xs text-muted-foreground">数字越大表示越难记住</p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">解释/笔记</Label>
-                <textarea
-                  id="description"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="输入单词的解释、历史、故事等"
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                />
-              </div>
-
-              <div className="space-y-3">
                 <Label>相关词</Label>
                 {relatedWords.length > 0 && (
                   <div className="space-y-2">
@@ -429,7 +270,7 @@ export default function WordDetailPage() {
                         className="flex items-center justify-between p-2 border rounded-md bg-muted/30"
                       >
                         <Link
-                          to={`/spaces/${spaceToken}/words/${rw.id}`}
+                          to={`/spaces/${spaceToken}/${rw.id}`}
                           className="text-sm hover:underline flex-1"
                           target="_blank"
                         >
@@ -475,6 +316,81 @@ export default function WordDetailPage() {
                 </div>
               </div>
 
+              <div className="space-y-3">
+                <Label>翻译</Label>
+                <Input
+                  value={translation}
+                  onChange={(e) => setTranslation(e.target.value)}
+                  placeholder="输入翻译"
+                  className="font-medium"
+                />
+                <div className="space-y-2">
+                  {usages.map((usage) => (
+                    <div key={usage.id} className="space-y-2 pl-3 border-l-2 border-muted">
+                      <Input
+                        value={usage.sentence}
+                        onChange={(e) => handleUsageChange(usage.id, 'sentence', e.target.value)}
+                        placeholder="例句（可选）"
+                      />
+                      <Input
+                        value={usage.translation}
+                        onChange={(e) => handleUsageChange(usage.id, 'translation', e.target.value)}
+                        placeholder="例句翻译（可选）"
+                        className="text-muted-foreground"
+                      />
+                      {usages.length > 1 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeUsage(usage.id)}
+                          className="text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-3 h-3 mr-1" /> 删除例句
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" size="sm" onClick={addUsage} className="w-full">
+                  <Plus className="w-3 h-3 mr-1" /> 添加例句
+                </Button>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="phonetic">音标</Label>
+                <Input
+                  id="phonetic"
+                  value={phonetic}
+                  onChange={(e) => setPhonetic(e.target.value)}
+                  placeholder="/ˈɪŋɡlɪʃ/"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="level">记忆难度</Label>
+                <Input
+                  id="level"
+                  type="number"
+                  min={0}
+                  max={10}
+                  value={level}
+                  onChange={(e) => setLevel(Number(e.target.value) || 1)}
+                  className="w-24"
+                />
+                <p className="text-xs text-muted-foreground">数字越大表示越难记住</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">解释/笔记</Label>
+                <textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="输入单词的解释、历史、故事等"
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <Button onClick={handleSave} disabled={isSubmitting} className="flex-1">
                   <Save className="w-4 h-4 mr-1" />
@@ -510,50 +426,32 @@ export default function WordDetailPage() {
                   </div>
                 )}
 
-                {(() => {
-                  const groups = toTranslationGroupItems(word);
-                  const hasContent = groups.some(
-                    (g) => g.translation || g.usages.some((u) => u.sentence),
-                  );
-                  if (!hasContent) return null;
-                  return (
-                    <div className="pt-4 border-t">
-                      <h3 className="text-sm font-semibold text-muted-foreground mb-3">
-                        翻译与例句
-                      </h3>
-                      <div className="space-y-4">
-                        {groups.map((group, i) => (
-                          <div key={group.id || i} className="space-y-3">
-                            {group.translation && (
-                              <div className="flex items-start gap-2">
-                                <span className="text-primary font-bold mt-0.5 shrink-0">
-                                  {i + 1}.
-                                </span>
-                                <p className="text-sm leading-relaxed">{group.translation}</p>
-                              </div>
-                            )}
-                            {group.usages.map(
-                              (usage, usageIndex) =>
-                                usage.sentence && (
-                                  <div
-                                    key={`${group.id}-usage-${usageIndex}`}
-                                    className="ml-4 space-y-1 border-l-2 border-primary/30 pl-3"
-                                  >
-                                    <p className="text-sm leading-relaxed">{usage.sentence}</p>
-                                    {usage.translation && (
-                                      <p className="text-sm text-muted-foreground leading-relaxed">
-                                        {usage.translation}
-                                      </p>
-                                    )}
-                                  </div>
-                                ),
-                            )}
-                          </div>
-                        ))}
-                      </div>
+                {(word.translation || word.usages?.some((u) => u.sentence)) && (
+                  <div className="pt-4 border-t">
+                    <h3 className="text-sm font-semibold text-muted-foreground mb-3">翻译与例句</h3>
+                    <div className="space-y-3">
+                      {word.translation && (
+                        <p className="text-sm leading-relaxed">{word.translation}</p>
+                      )}
+                      {word.usages?.map(
+                        (usage) =>
+                          usage.sentence && (
+                            <div
+                              key={usage.sentence}
+                              className="ml-4 space-y-1 border-l-2 border-primary/30 pl-3"
+                            >
+                              <p className="text-sm leading-relaxed">{usage.sentence}</p>
+                              {usage.translation && (
+                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                  {usage.translation}
+                                </p>
+                              )}
+                            </div>
+                          ),
+                      )}
                     </div>
-                  );
-                })()}
+                  </div>
+                )}
 
                 {relatedWords.length > 0 && (
                   <div className="pt-4 border-t">

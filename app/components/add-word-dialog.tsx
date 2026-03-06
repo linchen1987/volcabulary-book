@@ -1,7 +1,8 @@
 'use client';
 
+import { X } from 'lucide-react';
 import { nanoid } from 'nanoid';
-import { useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '~/components/ui/button';
 import {
@@ -15,11 +16,12 @@ import {
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { WordService } from '~/lib/services/word-service';
+import type { Word } from '~/lib/types';
 
-interface TranslationGroupItem {
+interface UsageItem {
   id: string;
+  sentence: string;
   translation: string;
-  usages: Array<{ sentence: string; translation: string }>;
 }
 
 interface AddWordDialogProps {
@@ -33,82 +35,89 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
   const [content, setContent] = useState('');
   const [phonetic, setPhonetic] = useState('');
   const [description, setDescription] = useState('');
-  const [translationGroups, setTranslationGroups] = useState<TranslationGroupItem[]>([
-    { id: nanoid(), translation: '', usages: [{ sentence: '', translation: '' }] },
+  const [translation, setTranslation] = useState('');
+  const [usages, setUsages] = useState<UsageItem[]>([
+    { id: nanoid(), sentence: '', translation: '' },
   ]);
   const [level, setLevel] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [relatedWordIds, setRelatedWordIds] = useState<string[]>([]);
+  const [relatedWords, setRelatedWords] = useState<Word[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Word[]>([]);
+  const handleSubmitRef = useRef<(() => void) | null>(null);
 
-  const resetForm = () => {
+  useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        handleSubmitRef.current?.();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [open]);
+
+  const resetForm = useCallback(() => {
     setContent('');
     setPhonetic('');
     setDescription('');
-    setTranslationGroups([
-      { id: nanoid(), translation: '', usages: [{ sentence: '', translation: '' }] },
-    ]);
+    setTranslation('');
+    setUsages([{ id: nanoid(), sentence: '', translation: '' }]);
     setLevel(1);
-  };
+    setRelatedWordIds([]);
+    setRelatedWords([]);
+    setSearchQuery('');
+    setSearchResults([]);
+  }, []);
 
-  const handleGroupChange = (groupId: string, _field: 'translation', value: string) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        return { ...g, translation: value };
+  const handleUsageChange = (usageId: string, field: 'sentence' | 'translation', value: string) => {
+    setUsages(
+      usages.map((u) => {
+        if (u.id !== usageId) return u;
+        return { ...u, [field]: value };
       }),
     );
   };
 
-  const handleUsageChange = (
-    groupId: string,
-    usageIndex: number,
-    field: 'sentence' | 'translation',
-    value: string,
-  ) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        const newUsages = g.usages.map((u, i) => (i === usageIndex ? { ...u, [field]: value } : u));
-        return { ...g, usages: newUsages };
-      }),
-    );
+  const addUsage = () => {
+    setUsages([...usages, { id: nanoid(), sentence: '', translation: '' }]);
   };
 
-  const addUsageToGroup = (groupId: string) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        return { ...g, usages: [...g.usages, { sentence: '', translation: '' }] };
-      }),
-    );
-  };
-
-  const removeUsageFromGroup = (groupId: string, usageIndex: number) => {
-    setTranslationGroups(
-      translationGroups.map((g) => {
-        if (g.id !== groupId) return g;
-        if (g.usages.length <= 1) return g;
-        return {
-          ...g,
-          usages: g.usages.filter((_, i) => i !== usageIndex),
-        };
-      }),
-    );
-  };
-
-  const addTranslationGroup = () => {
-    setTranslationGroups([
-      ...translationGroups,
-      { id: nanoid(), translation: '', usages: [{ sentence: '', translation: '' }] },
-    ]);
-  };
-
-  const removeTranslationGroup = (id: string) => {
-    if (translationGroups.length > 1) {
-      setTranslationGroups(translationGroups.filter((g) => g.id !== id));
+  const removeUsage = (id: string) => {
+    if (usages.length > 1) {
+      setUsages(usages.filter((u) => u.id !== id));
     }
   };
 
-  const handleSubmit = async () => {
+  const handleSearchWords = async (query: string) => {
+    setSearchQuery(query);
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const results = await WordService.getWordsBySpace(spaceId, {
+      search: query,
+      limit: 10,
+    });
+    const filtered = results.filter((w) => !relatedWordIds.includes(w.id));
+    setSearchResults(filtered);
+  };
+
+  const handleAddRelatedWord = (word: Word) => {
+    setRelatedWordIds([...relatedWordIds, word.id]);
+    setRelatedWords([...relatedWords, word]);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  const handleRemoveRelatedWord = (wordId: string) => {
+    setRelatedWordIds(relatedWordIds.filter((id) => id !== wordId));
+    setRelatedWords(relatedWords.filter((w) => w.id !== wordId));
+  };
+
+  const handleSubmit = useCallback(async () => {
     if (!content.trim()) {
       toast.error('请输入单词内容');
       return;
@@ -116,30 +125,25 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
 
     setIsSubmitting(true);
     try {
-      const filteredGroups = translationGroups
-        .filter((g) => g.translation.trim() || g.usages.some((u) => u.sentence.trim()))
-        .map((g) => {
-          const filteredUsages = g.usages
-            .filter((u) => u.sentence.trim())
-            .map((u) => ({
-              sentence: u.sentence.trim(),
-              translation: u.translation.trim() || undefined,
-            }));
+      const filteredUsages = usages
+        .filter((u) => u.sentence.trim())
+        .map((u) => ({
+          sentence: u.sentence.trim(),
+          translation: u.translation.trim() || undefined,
+        }));
 
-          return {
-            id: g.id,
-            translation: g.translation.trim(),
-            usages: filteredUsages.length > 0 ? filteredUsages : undefined,
-          };
-        });
-
-      await WordService.createWord(spaceId, {
+      const wordId = await WordService.createWord(spaceId, {
         content: content.trim(),
         phonetic: phonetic.trim() || undefined,
         description: description.trim() || undefined,
-        translationGroups: filteredGroups.length > 0 ? filteredGroups : undefined,
+        translation: translation.trim() || undefined,
+        usages: filteredUsages.length > 0 ? filteredUsages : undefined,
         level,
       });
+
+      for (const relatedId of relatedWordIds) {
+        await WordService.addRelatedWord(wordId, relatedId);
+      }
 
       toast.success('单词添加成功');
       resetForm();
@@ -151,7 +155,21 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    content,
+    usages,
+    spaceId,
+    phonetic,
+    description,
+    translation,
+    level,
+    relatedWordIds,
+    resetForm,
+    onOpenChange,
+    onSuccess,
+  ]);
+
+  handleSubmitRef.current = handleSubmit;
 
   const handleClose = () => {
     onOpenChange(false);
@@ -159,13 +177,13 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogHeader className="px-6 pt-6 pb-2">
           <DialogTitle>添加单词</DialogTitle>
           <DialogDescription>添加一个新的单词到当前单词本</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 px-6 overflow-y-auto flex-1">
           <div className="space-y-2">
             <Label htmlFor="content">单词/短语/句子 *</Label>
             <Input
@@ -177,77 +195,93 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
           </div>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <Label>翻译组</Label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={addTranslationGroup}
-                className="h-7 gap-1"
-              >
-                添加组
-              </Button>
-            </div>
-            {translationGroups.map((group) => (
-              <div key={group.id} className="space-y-2 p-4 border rounded-lg bg-muted/30">
-                <Input
-                  value={group.translation}
-                  onChange={(e) => handleGroupChange(group.id, 'translation', e.target.value)}
-                  placeholder="翻译"
-                  className="font-medium"
-                />
-                {group.usages.map((usage, usageIndex) => (
+            <Label>相关词</Label>
+            {relatedWords.length > 0 && (
+              <div className="space-y-2">
+                {relatedWords.map((rw) => (
                   <div
-                    key={`${group.id}-usage-${usageIndex}`}
-                    className="space-y-2 pl-3 border-l-2 border-muted"
+                    key={rw.id}
+                    className="flex items-center justify-between p-2 border rounded-md bg-muted/30"
                   >
-                    <Input
-                      value={usage.sentence}
-                      onChange={(e) =>
-                        handleUsageChange(group.id, usageIndex, 'sentence', e.target.value)
-                      }
-                      placeholder={`例句 ${usageIndex + 1}（可选）`}
-                    />
-                    <Input
-                      value={usage.translation}
-                      onChange={(e) =>
-                        handleUsageChange(group.id, usageIndex, 'translation', e.target.value)
-                      }
-                      placeholder="例句翻译（可选）"
-                      className="text-muted-foreground"
-                    />
-                    {group.usages.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeUsageFromGroup(group.id, usageIndex)}
-                        className="text-muted-foreground hover:text-destructive"
-                      >
-                        删除例句
-                      </Button>
-                    )}
+                    <span className="text-sm flex-1">{rw.content}</span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveRelatedWord(rw.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
                   </div>
                 ))}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => addUsageToGroup(group.id)}
-                  className="w-full"
-                >
-                  添加例句
-                </Button>
-                {translationGroups.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeTranslationGroup(group.id)}
-                    className="text-muted-foreground hover:text-destructive"
-                  >
-                    删除此组
-                  </Button>
-                )}
               </div>
-            ))}
+            )}
+
+            <div className="relative">
+              <Input
+                value={searchQuery}
+                onChange={(e) => handleSearchWords(e.target.value)}
+                placeholder="搜索单词添加为相关词..."
+                className="w-full"
+              />
+              {searchResults.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                  {searchResults.map((result) => (
+                    <button
+                      key={result.id}
+                      type="button"
+                      onClick={() => handleAddRelatedWord(result)}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                    >
+                      <span className="font-medium">{result.content}</span>
+                      {result.phonetic && (
+                        <span className="text-muted-foreground text-xs">{result.phonetic}</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label>翻译</Label>
+            <Input
+              value={translation}
+              onChange={(e) => setTranslation(e.target.value)}
+              placeholder="输入翻译"
+              className="font-medium"
+            />
+            <div className="space-y-2">
+              {usages.map((usage) => (
+                <div key={usage.id} className="space-y-2 pl-3 border-l-2 border-muted">
+                  <Input
+                    value={usage.sentence}
+                    onChange={(e) => handleUsageChange(usage.id, 'sentence', e.target.value)}
+                    placeholder="例句（可选）"
+                  />
+                  <Input
+                    value={usage.translation}
+                    onChange={(e) => handleUsageChange(usage.id, 'translation', e.target.value)}
+                    placeholder="例句翻译（可选）"
+                    className="text-muted-foreground"
+                  />
+                  {usages.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeUsage(usage.id)}
+                      className="text-muted-foreground hover:text-destructive"
+                    >
+                      删除例句
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" onClick={addUsage} className="w-full">
+              添加例句
+            </Button>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
@@ -287,7 +321,7 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t shrink-0">
           <Button variant="outline" onClick={handleClose}>
             取消
           </Button>

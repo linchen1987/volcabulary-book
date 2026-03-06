@@ -70,15 +70,12 @@ export const WordService = {
       const searchLower = options.search.toLowerCase();
       words = words.filter((w) => {
         if (w.content.toLowerCase().includes(searchLower)) return true;
+        if (w.translation?.toLowerCase().includes(searchLower)) return true;
         if (
-          w.translationGroups?.some(
-            (g) =>
-              g.translation.toLowerCase().includes(searchLower) ||
-              g.usages?.some(
-                (u) =>
-                  u.sentence.toLowerCase().includes(searchLower) ||
-                  u.translation?.toLowerCase().includes(searchLower),
-              ),
+          w.usages?.some(
+            (u) =>
+              u.sentence.toLowerCase().includes(searchLower) ||
+              u.translation?.toLowerCase().includes(searchLower),
           )
         )
           return true;
@@ -149,7 +146,8 @@ export const WordService = {
         spaceId,
         content: data.content || '',
         description: data.description,
-        translationGroups: data.translationGroups,
+        translation: data.translation,
+        usages: data.usages,
         level: data.level ?? 1,
         phonetic: data.phonetic,
         audioUrl: data.audioUrl,

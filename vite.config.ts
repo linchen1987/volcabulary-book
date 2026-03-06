@@ -16,7 +16,7 @@ export default defineConfig({
         enabled: true,
         type: 'module',
       },
-      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      includeAssets: ['favicon.svg', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: false,
       workbox: {
         // 排除动态 manifest 路由，防止名称被缓存后无法随笔记本重命名而更新

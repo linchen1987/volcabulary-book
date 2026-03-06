@@ -29,14 +29,21 @@ import { parseSpaceId } from '~/lib/utils/token';
 
 type QuizState = 'setup' | 'quiz' | 'result';
 
-function getTranslationGroups(word: Word): Array<{
-  translation: string;
+function hasTranslationOrUsages(word: Word): boolean {
+  return !!(word.translation || word.usages?.some((u) => u.sentence));
+}
+
+function getTranslationDisplay(word: Word): {
+  translation?: string;
   usages?: Array<{ sentence: string; translation?: string }>;
-}> {
-  if (word.translationGroups && word.translationGroups.length > 0) {
-    return word.translationGroups;
+} {
+  if (word.translation || word.usages) {
+    return {
+      translation: word.translation,
+      usages: word.usages,
+    };
   }
-  return [];
+  return {};
 }
 
 interface QuizWord {
@@ -347,11 +354,8 @@ function QuizCard({
             )}
 
             {(() => {
-              const groups = getTranslationGroups(word);
-              const hasContent = groups.some(
-                (g) => g.translation || g.usages?.some((u) => u.sentence),
-              );
-              if (!hasContent) return null;
+              if (!hasTranslationOrUsages(word)) return null;
+              const display = getTranslationDisplay(word);
               return (
                 <div className="bg-muted/50 rounded-lg p-4">
                   <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
@@ -359,32 +363,21 @@ function QuizCard({
                     翻译与例句
                   </h3>
                   <div className="space-y-3">
-                    {groups.map((group, i) => (
-                      <div key={`group-${i}-${group.translation}`} className="space-y-1">
-                        {group.translation && (
-                          <div className="flex items-start gap-2">
-                            <span className="text-primary font-bold">{i + 1}.</span>
-                            <p className="text-sm">{group.translation}</p>
+                    {display.translation && <p className="text-sm">{display.translation}</p>}
+                    {display.usages?.map(
+                      (usage) =>
+                        usage.sentence && (
+                          <div
+                            key={usage.sentence}
+                            className="ml-4 space-y-1 border-l-2 border-muted-foreground/20 pl-3"
+                          >
+                            <p className="text-sm">{usage.sentence}</p>
+                            {usage.translation && (
+                              <p className="text-sm text-muted-foreground">{usage.translation}</p>
+                            )}
                           </div>
-                        )}
-                        {group.usages?.map(
-                          (usage, usageIndex) =>
-                            usage.sentence && (
-                              <div
-                                key={`${group.translation}-usage-${usageIndex}`}
-                                className="ml-4 space-y-1 border-l-2 border-muted-foreground/20 pl-3"
-                              >
-                                <p className="text-sm">{usage.sentence}</p>
-                                {usage.translation && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {usage.translation}
-                                  </p>
-                                )}
-                              </div>
-                            ),
-                        )}
-                      </div>
-                    ))}
+                        ),
+                    )}
                   </div>
                 </div>
               );

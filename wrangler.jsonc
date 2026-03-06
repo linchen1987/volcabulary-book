@@ -4,9 +4,7 @@
   "compatibility_date": "2025-04-04",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./workers/app.ts",
-  "vars": {
-    "VALUE_FROM_CLOUDFLARE": "Hello from Cloudflare"
-  },
+  "vars": {},
   "observability": {
     "enabled": false,
     "head_sampling_rate": 1,

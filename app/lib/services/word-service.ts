@@ -43,8 +43,8 @@ export const SpaceService = {
   async deleteSpace(id: string): Promise<void> {
     await db.transaction('rw', [db.spaces, db.words, db.syncEvents], async () => {
       await db.words.where('spaceId').equals(id).delete();
-      await db.syncEvents.where('spaceId').equals(id).delete();
       await db.spaces.delete(id);
+      await db.syncEvents.where('spaceId').equals(id).delete();
     });
   },
 };

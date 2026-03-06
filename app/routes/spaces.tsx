@@ -527,7 +527,7 @@ export default function SpacesPage() {
                       <CardFooter className="p-8 pt-0">
                         <Button
                           className="w-full h-12 rounded-xl gap-2 font-bold bg-blue-500 hover:bg-blue-600 text-white shadow-lg shadow-blue-500/20"
-                          onClick={() => handleSync(rsp.id)}
+                          onClick={() => handlePull(rsp.id)}
                           disabled={syncingId === rsp.id}
                         >
                           {syncingId === rsp.id ? (

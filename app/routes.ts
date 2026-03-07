@@ -11,7 +11,6 @@ export default [
     route('quiz', 'routes/space-item/quiz.tsx'),
     route('settings', 'routes/space-item/settings.tsx'),
     route('manifest.webmanifest', 'routes/manifest.tsx'),
-    route(':wordId', 'routes/space-item/detail.tsx'),
   ]),
 
   // Playground 模块

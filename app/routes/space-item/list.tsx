@@ -2,21 +2,39 @@
 
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
-  ArrowUpDown,
   BookOpen,
   CloudDownload,
   Edit2,
+  MoreVertical,
   Plus,
   Search as SearchIcon,
+  Trash2,
   X,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router';
+import { useParams, useSearchParams } from 'react-router';
+import { toast } from 'sonner';
 import { AddWordDialog } from '~/components/add-word-dialog';
 import { PageHeader } from '~/components/page-header';
 import { SyncStatus } from '~/components/sync-status';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '~/components/ui/alert-dialog';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '~/components/ui/dropdown-menu';
 import { Input } from '~/components/ui/input';
 import type { SortField, SortOrder } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
@@ -29,12 +47,18 @@ function getTranslationPreview(word: Word): string {
   return word.translation || '';
 }
 
-const SORT_OPTIONS: { value: SortField; label: string }[] = [
-  { value: 'updatedAt', label: '更新时间' },
-  { value: 'createdAt', label: '创建时间' },
-  { value: 'level', label: '难度' },
-  { value: 'content', label: '内容' },
+const SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'updatedAt-desc', label: '更新时间 (最新)' },
+  { value: 'updatedAt-asc', label: '更新时间 (最早)' },
+  { value: 'createdAt-desc', label: '创建时间 (最新)' },
+  { value: 'createdAt-asc', label: '创建时间 (最早)' },
+  { value: 'level-desc', label: '难度 (高到低)' },
+  { value: 'level-asc', label: '难度 (低到高)' },
+  { value: 'content-asc', label: '内容 (A-Z)' },
+  { value: 'content-desc', label: '内容 (Z-A)' },
 ];
+
+type DialogMode = 'add' | 'edit' | 'view' | null;
 
 export default function WordListPage() {
   const { spaceToken } = useParams();
@@ -43,13 +67,19 @@ export default function WordListPage() {
 
   const q = searchParams.get('q') || '';
   const levelFilter = searchParams.get('level') ? Number(searchParams.get('level')) : undefined;
-  const sortBy = (searchParams.get('sort') as SortField) || 'updatedAt';
-  const sortOrder = (searchParams.get('order') as SortOrder) || 'desc';
+  const sortValue = searchParams.get('sort') || 'updatedAt-desc';
+  const [sortBy, sortOrder] = sortValue.split('-') as [SortField, SortOrder];
 
   const [inputQuery, setInputQuery] = useState(q);
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [dialogMode, setDialogMode] = useState<DialogMode>(null);
+  const [selectedWordId, setSelectedWordId] = useState<string | undefined>();
   const [visibleTranslations, setVisibleTranslations] = useState<Set<string>>(new Set());
-  const { isSyncing, syncPull, ensurePulled } = useSyncStore();
+  const [hoveredTranslations, setHoveredTranslations] = useState<Set<string>>(new Set());
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [wordToDelete, setWordToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const { isSyncing, syncPull, ensurePulled, syncPush } = useSyncStore();
 
   useEffect(() => {
     ensurePulled(spaceId);
@@ -57,16 +87,17 @@ export default function WordListPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !isAddDialogOpen) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !dialogMode) {
         const target = e.target as HTMLElement;
         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
         e.preventDefault();
-        setIsAddDialogOpen(true);
+        setDialogMode('add');
+        setSelectedWordId(undefined);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isAddDialogOpen]);
+  }, [dialogMode]);
 
   const space = useLiveQuery(() => SpaceService.getSpace(spaceId), [spaceId]);
   const stats = useLiveQuery(() => WordService.getStats(spaceId), [spaceId]);
@@ -109,15 +140,9 @@ export default function WordListPage() {
     setSearchParams(params);
   };
 
-  const toggleSortOrder = () => {
+  const setSortValue = (value: string) => {
     const params = new URLSearchParams(searchParams);
-    params.set('order', sortOrder === 'desc' ? 'asc' : 'desc');
-    setSearchParams(params);
-  };
-
-  const setSortBy = (sort: SortField) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('sort', sort);
+    params.set('sort', value);
     setSearchParams(params);
   };
 
@@ -133,8 +158,63 @@ export default function WordListPage() {
     });
   };
 
+  const setTranslationHover = (wordId: string, isHovered: boolean) => {
+    setHoveredTranslations((prev) => {
+      const next = new Set(prev);
+      if (isHovered) {
+        next.add(wordId);
+      } else {
+        next.delete(wordId);
+      }
+      return next;
+    });
+  };
+
   const handlePull = async () => {
     await syncPull(spaceId);
+  };
+
+  const handleDeleteWord = async () => {
+    if (!wordToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      await WordService.deleteWord(wordToDelete);
+      toast.success('单词已删除');
+      syncPush(spaceId);
+    } catch (error) {
+      console.error(error);
+      toast.error('删除失败');
+    } finally {
+      setIsDeleting(false);
+      setIsDeleteDialogOpen(false);
+      setWordToDelete(null);
+    }
+  };
+
+  const openDeleteDialog = (wordId: string) => {
+    setWordToDelete(wordId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const openViewDialog = (wordId: string) => {
+    setSelectedWordId(wordId);
+    setDialogMode('view');
+  };
+
+  const openEditDialog = (wordId: string) => {
+    setSelectedWordId(wordId);
+    setDialogMode('edit');
+  };
+
+  const openAddDialog = () => {
+    setSelectedWordId(undefined);
+    setDialogMode('add');
+  };
+
+  const closeDialog = () => {
+    setDialogMode(null);
+    setSelectedWordId(undefined);
   };
 
   if (!space) return null;
@@ -175,104 +255,109 @@ export default function WordListPage() {
         </div>
       </PageHeader>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8 space-y-6">
-        <Card className="border-none shadow-sm overflow-hidden bg-card p-4">
-          <div className="space-y-4">
-            <div className="flex flex-wrap gap-2">
-              {stats && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setLevelFilter(undefined)}
-                    className={cn(
-                      'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
-                      levelFilter === undefined
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80',
-                    )}
-                  >
-                    全部 ({stats.total})
-                  </button>
-                  {Object.keys(stats.byLevel)
-                    .map(Number)
-                    .sort((a, b) => a - b)
-                    .map((level) => (
-                      <button
-                        key={level}
-                        type="button"
-                        onClick={() => setLevelFilter(level)}
-                        className={cn(
-                          'px-3 py-1.5 rounded-full text-sm font-medium transition-colors',
-                          levelFilter === level
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted hover:bg-muted/80',
-                        )}
-                      >
-                        Lv.{level} ({stats.byLevel[level]})
-                      </button>
-                    ))}
-                </>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortField)}
-                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-              >
-                {SORT_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8">
+        <div className="flex items-center gap-3 mb-6">
+          <select
+            value={levelFilter === undefined ? '' : levelFilter}
+            onChange={(e) =>
+              setLevelFilter(e.target.value === '' ? undefined : Number(e.target.value))
+            }
+            className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+          >
+            <option value="">全部 {stats && `(${stats.total})`}</option>
+            {stats &&
+              Object.keys(stats.byLevel)
+                .map(Number)
+                .sort((a, b) => a - b)
+                .map((level) => (
+                  <option key={level} value={level}>
+                    Lv.{level} ({stats.byLevel[level]})
                   </option>
                 ))}
-              </select>
-              <Button variant="ghost" size="icon" onClick={toggleSortOrder} className="h-9 w-9">
-                <ArrowUpDown className={`w-4 h-4 ${sortOrder === 'asc' ? 'rotate-180' : ''}`} />
-              </Button>
-            </div>
-          </div>
-        </Card>
+          </select>
+
+          <div className="h-5 w-px bg-border" />
+
+          <select
+            value={sortValue}
+            onChange={(e) => setSortValue(e.target.value)}
+            className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+          >
+            {SORT_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="h-px bg-border mb-6" />
 
         <div className="space-y-4 pb-20">
           {words?.map((word) => {
             const isTranslationVisible = visibleTranslations.has(word.id);
+            const isHovered = hoveredTranslations.has(word.id);
+            const shouldShowTranslation = isTranslationVisible || isHovered;
             const translation = getTranslationPreview(word);
 
             return (
               <Card key={word.id} className="p-4 hover:shadow-md transition-all">
                 <div className="flex justify-between items-center gap-3">
-                  <Link
-                    to={`/spaces/${spaceToken}/${word.id}`}
-                    className="min-w-0 flex-1 flex items-baseline gap-2"
-                  >
+                  <div className="min-w-0 flex-1 flex items-baseline gap-2">
                     <h3 className="text-lg font-semibold truncate">{word.content}</h3>
                     {word.phonetic && (
                       <span className="text-sm text-muted-foreground shrink-0">
                         {word.phonetic}
                       </span>
                     )}
-                    {isTranslationVisible && translation && (
+                    {shouldShowTranslation && translation && (
                       <span className="text-sm text-muted-foreground truncate">{translation}</span>
                     )}
-                  </Link>
+                  </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {translation && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => toggleTranslation(word.id)}
-                        className={cn('h-8 w-8', isTranslationVisible && 'text-primary')}
+                        onMouseEnter={() => setTranslationHover(word.id, true)}
+                        onMouseLeave={() => setTranslationHover(word.id, false)}
+                        className={cn(
+                          'h-8 w-8',
+                          isTranslationVisible && 'text-primary hover:text-primary',
+                        )}
                         title={isTranslationVisible ? '隐藏翻译' : '显示翻译'}
                       >
                         <BookOpen className="w-4 h-4" />
                       </Button>
                     )}
-                    <Link to={`/spaces/${spaceToken}/${word.id}?edit=true`}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        <Edit2 className="w-4 h-4" />
-                      </Button>
-                    </Link>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openEditDialog(word.id)}
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="w-4 h-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="rounded-2xl p-2 min-w-[120px]">
+                        <DropdownMenuItem onClick={() => openViewDialog(word.id)}>
+                          详情
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => openDeleteDialog(word.id)}
+                          className="text-destructive focus:text-destructive rounded-xl"
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          删除
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <span className="px-2 py-1 bg-primary/10 rounded-full text-xs font-medium">
                       Lv.{word.level}
                     </span>
@@ -314,14 +399,39 @@ export default function WordListPage() {
 
       <button
         type="button"
-        onClick={() => setIsAddDialogOpen(true)}
+        onClick={openAddDialog}
         className="fixed right-6 bottom-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 active:scale-95 z-50 flex items-center justify-center"
         aria-label="添加单词"
       >
         <Plus className="w-6 h-6" />
       </button>
 
-      <AddWordDialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen} spaceId={spaceId} />
+      <AddWordDialog
+        open={dialogMode !== null}
+        onOpenChange={(open) => !open && closeDialog()}
+        spaceId={spaceId}
+        mode={dialogMode || 'add'}
+        wordId={selectedWordId}
+      />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确定要删除吗？</AlertDialogTitle>
+            <AlertDialogDescription>此操作无法撤销。单词将被永久删除。</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteWord}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? '删除中...' : '确认删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

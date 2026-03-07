@@ -266,4 +266,11 @@ export const WordService = {
   async getWordsByLevel(spaceId: string, level: number): Promise<Word[]> {
     return db.words.where({ spaceId, level }).reverse().sortBy('updatedAt');
   },
+
+  async checkWordExists(spaceId: string, content: string): Promise<Word | undefined> {
+    const trimmedContent = content.trim().toLowerCase();
+    if (!trimmedContent) return undefined;
+    const words = await db.words.where('spaceId').equals(spaceId).toArray();
+    return words.find((w) => w.content.toLowerCase() === trimmedContent);
+  },
 };

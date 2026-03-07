@@ -1,7 +1,7 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Edit2, Plus, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, Edit2, Plus, Save, Trash2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -19,7 +19,6 @@ import { Button } from '~/components/ui/button';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -87,6 +86,7 @@ export function AddWordDialog({
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [existingWord, setExistingWord] = useState<Word | null>(null);
 
   const handleSubmitRef = useRef<(() => void) | null>(null);
   const { syncPush } = useSyncStore();
@@ -96,6 +96,18 @@ export function AddWordDialog({
   useEffect(() => {
     setCurrentMode(mode);
   }, [mode]);
+
+  useEffect(() => {
+    if (currentMode !== 'add' || !content.trim()) {
+      setExistingWord(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const found = await WordService.checkWordExists(spaceId, content);
+      setExistingWord(found ?? null);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [content, spaceId, currentMode]);
 
   useEffect(() => {
     if (word && (mode === 'edit' || mode === 'view')) {
@@ -312,61 +324,32 @@ export function AddWordDialog({
     return '添加单词';
   };
 
-  const getDialogDescription = () => {
-    if (currentMode === 'view') return '查看单词详细信息';
-    if (currentMode === 'edit') return '修改单词信息';
-    return '添加一个新的单词到当前单词本';
-  };
-
   if (currentMode === 'view' && !isReadOnly) return null;
 
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 pt-6 pb-2 flex-row items-center justify-between space-y-0">
-            <div>
-              <DialogTitle>{getDialogTitle()}</DialogTitle>
-              <DialogDescription>{getDialogDescription()}</DialogDescription>
-            </div>
-            {currentMode === 'view' && wordId && (
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setCurrentMode('edit')}
-                  className="rounded-full"
-                >
-                  <Edit2 className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsDeleteDialogOpen(true)}
-                  className="rounded-full text-destructive hover:text-destructive"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+          <DialogHeader className="px-6 pt-5 pb-0">
+            <DialogTitle className="text-base">{getDialogTitle()}</DialogTitle>
           </DialogHeader>
 
           {currentMode === 'view' ? (
             <>
-              <div className="space-y-6 py-4 px-6 overflow-y-auto flex-1">
-                <div className="space-y-2">
-                  <Label>单词/短语</Label>
-                  <div className="text-lg font-semibold">{word?.content}</div>
+              <div className="space-y-5 px-6 py-5 overflow-y-auto flex-1">
+                <div>
+                  <Label className="text-muted-foreground text-xs">单词/短语</Label>
+                  <div className="text-lg font-semibold mt-1">{word?.content}</div>
                 </div>
 
                 {relatedWords.length > 0 && (
-                  <div className="space-y-2">
-                    <Label>相关词</Label>
-                    <div className="flex flex-wrap gap-2">
+                  <div>
+                    <Label className="text-muted-foreground text-xs">相关词</Label>
+                    <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {relatedWords.map((rw) => (
                         <span
                           key={rw.id}
-                          className="px-3 py-1.5 text-sm bg-primary/10 hover:bg-primary/20 rounded-full transition-colors cursor-default"
+                          className="px-2.5 py-1 text-sm bg-primary/10 rounded-full"
                         >
                           {rw.content}
                         </span>
@@ -375,92 +358,130 @@ export function AddWordDialog({
                   </div>
                 )}
 
-                <div className="space-y-2">
-                  <Label>翻译</Label>
-                  <div className="space-y-2">
-                    {word?.translation && (
-                      <p className="text-sm leading-relaxed">{word.translation}</p>
-                    )}
-                    {word?.usages?.map(
-                      (usage) =>
-                        usage.sentence && (
-                          <div
-                            key={usage.sentence}
-                            className="pl-3 border-l-2 border-muted space-y-1"
-                          >
-                            <p className="text-sm leading-relaxed">{usage.sentence}</p>
-                            {usage.translation && (
-                              <p className="text-sm text-muted-foreground leading-relaxed">
-                                {usage.translation}
-                              </p>
-                            )}
-                          </div>
-                        ),
-                    )}
+                {word?.translation && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">翻译</Label>
+                    <p className="text-sm leading-relaxed mt-1">{word.translation}</p>
                   </div>
-                </div>
+                )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>音标</Label>
-                    <div className="text-sm">{word?.phonetic || '-'}</div>
+                {word?.usages && word.usages.length > 0 && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">例句</Label>
+                    <div className="space-y-2 mt-1.5">
+                      {word.usages.map(
+                        (usage) =>
+                          usage.sentence && (
+                            <div key={usage.sentence} className="pl-3 border-l-2 border-muted">
+                              <p className="text-sm leading-relaxed">{usage.sentence}</p>
+                              {usage.translation && (
+                                <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">
+                                  {usage.translation}
+                                </p>
+                              )}
+                            </div>
+                          ),
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>记忆难度</Label>
-                    <div className="flex items-center gap-2">
-                      <span className="px-2 py-1 bg-primary/10 rounded-full text-sm font-medium">
+                )}
+
+                <div className="grid grid-cols-2 gap-6">
+                  <div>
+                    <Label className="text-muted-foreground text-xs">音标</Label>
+                    <div className="text-sm mt-1">{word?.phonetic || '-'}</div>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground text-xs">记忆难度</Label>
+                    <div className="mt-1">
+                      <span className="px-2 py-0.5 bg-primary/10 rounded text-sm font-medium">
                         Lv.{word?.level ?? 1}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>解释/笔记</Label>
-                  <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                    {word?.description || '-'}
-                  </p>
-                </div>
+                {word?.description && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">解释/笔记</Label>
+                    <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1">
+                      {word.description}
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <DialogFooter className="px-6 py-4 border-t shrink-0">
-                <Button variant="outline" onClick={handleClose}>
+              <DialogFooter className="px-6 py-3 border-t shrink-0">
+                {currentMode === 'view' && wordId && (
+                  <>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIsDeleteDialogOpen(true)}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      删除
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setCurrentMode('edit')}
+                      className="text-primary hover:text-primary"
+                    >
+                      <Edit2 className="w-4 h-4 mr-1" />
+                      编辑
+                    </Button>
+                  </>
+                )}
+                <Button variant="ghost" onClick={handleClose}>
                   关闭
                 </Button>
               </DialogFooter>
             </>
           ) : (
             <>
-              <div className="space-y-6 py-4 px-6 overflow-y-auto flex-1">
-                <div className="space-y-2">
-                  <Label htmlFor="content">单词/短语 *</Label>
+              <div className="space-y-5 px-6 py-5 overflow-y-auto flex-1">
+                <div>
+                  <Label htmlFor="content" className="text-muted-foreground text-xs">
+                    单词/短语 <span className="text-destructive">*</span>
+                  </Label>
                   <Input
                     id="content"
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="输入要记忆的内容"
                     disabled={isReadOnly || currentMode === 'edit'}
+                    className={
+                      existingWord
+                        ? 'border-destructive focus-visible:ring-destructive mt-1.5'
+                        : 'mt-1.5'
+                    }
                   />
+                  {existingWord && currentMode === 'add' && (
+                    <div className="flex items-center gap-1.5 text-xs text-destructive mt-1.5">
+                      <AlertCircle className="w-3.5 h-3.5" />
+                      <span>该单词已存在</span>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label>翻译</Label>
+                <div>
+                  <Label className="text-muted-foreground text-xs">翻译</Label>
                   <Input
                     value={translation}
                     onChange={(e) => setTranslation(e.target.value)}
                     placeholder="输入翻译"
-                    className="font-medium"
+                    className="font-medium mt-1.5"
                     disabled={isReadOnly}
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label>相关词</Label>
-                  <div className="relative flex flex-wrap items-center gap-1.5 p-2 border rounded-md min-h-[42px]">
+                <div>
+                  <Label className="text-muted-foreground text-xs">相关词</Label>
+                  <div className="relative flex flex-wrap items-center gap-1.5 p-2 border rounded-md min-h-[40px] mt-1.5">
                     {relatedWords.map((rw) => (
                       <span
                         key={rw.id}
-                        className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-primary/10 rounded-full"
                       >
                         {rw.content}
                         <button
@@ -500,18 +521,18 @@ export function AddWordDialog({
                   </div>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Label>例句</Label>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <Label className="text-muted-foreground text-xs">例句</Label>
                     {!isReadOnly && (
-                      <Button variant="ghost" size="sm" onClick={addUsage}>
+                      <Button variant="ghost" size="sm" onClick={addUsage} className="h-6 text-xs">
                         <Plus className="w-3 h-3 mr-1" /> 添加
                       </Button>
                     )}
                   </div>
                   <div className="space-y-2">
                     {usages.map((usage) => (
-                      <div key={usage.id} className="flex items-start gap-2">
+                      <div key={usage.id} className="flex items-center gap-2">
                         <Input
                           value={usage.sentence}
                           onChange={(e) => handleUsageChange(usage.id, 'sentence', e.target.value)}
@@ -522,11 +543,11 @@ export function AddWordDialog({
                         {usages.length > 1 && !isReadOnly && (
                           <Button
                             variant="ghost"
-                            size="sm"
+                            size="icon"
                             onClick={() => removeUsage(usage.id)}
-                            className="text-muted-foreground hover:text-destructive shrink-0"
+                            className="text-muted-foreground hover:text-destructive shrink-0 h-9 w-9"
                           >
-                            <X className="w-3 h-3" />
+                            <X className="w-4 h-4" />
                           </Button>
                         )}
                       </div>
@@ -535,19 +556,24 @@ export function AddWordDialog({
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phonetic">音标</Label>
+                  <div>
+                    <Label htmlFor="phonetic" className="text-muted-foreground text-xs">
+                      音标
+                    </Label>
                     <Input
                       id="phonetic"
                       value={phonetic}
                       onChange={(e) => setPhonetic(e.target.value)}
                       placeholder="/ˈɪŋɡlɪʃ/"
                       disabled={isReadOnly}
+                      className="mt-1.5"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="level">记忆难度</Label>
+                  <div>
+                    <Label htmlFor="level" className="text-muted-foreground text-xs">
+                      记忆难度
+                    </Label>
                     <Input
                       id="level"
                       type="number"
@@ -556,25 +582,27 @@ export function AddWordDialog({
                       value={level}
                       onChange={(e) => setLevel(Number(e.target.value) || 1)}
                       disabled={isReadOnly}
+                      className="mt-1.5"
                     />
-                    <p className="text-xs text-muted-foreground">0-10，越大越难</p>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="description">解释/笔记</Label>
+                <div>
+                  <Label htmlFor="description" className="text-muted-foreground text-xs">
+                    解释/笔记
+                  </Label>
                   <textarea
                     id="description"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="输入单词的解释、历史、故事等"
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1.5 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={isReadOnly}
                   />
                 </div>
               </div>
 
-              <DialogFooter className="px-6 py-4 border-t shrink-0">
+              <DialogFooter className="px-6 py-3 border-t shrink-0">
                 <Button variant="outline" onClick={handleClose}>
                   取消
                 </Button>

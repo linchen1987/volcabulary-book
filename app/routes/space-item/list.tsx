@@ -87,6 +87,20 @@ export default function WordListPage() {
   }, [spaceId, ensurePulled]);
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams(searchParams);
+      if (inputQuery) {
+        params.set('q', inputQuery);
+      } else {
+        params.delete('q');
+      }
+      setSearchParams(params, { replace: true });
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [inputQuery, searchParams, setSearchParams]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'a' && !dialogMode) {
         const target = e.target as HTMLElement;
@@ -112,17 +126,6 @@ export default function WordListPage() {
       }),
     [spaceId, q, levelFilter, sortBy, sortOrder],
   );
-
-  const handleSearchSubmit = (e?: React.FormEvent) => {
-    e?.preventDefault();
-    const params = new URLSearchParams(searchParams);
-    if (inputQuery) {
-      params.set('q', inputQuery);
-    } else {
-      params.delete('q');
-    }
-    setSearchParams(params);
-  };
 
   const clearSearch = () => {
     setInputQuery('');
@@ -235,7 +238,10 @@ export default function WordListPage() {
           >
             <CloudDownload className={`w-4 h-4 ${isSyncing ? 'animate-pulse' : ''}`} />
           </Button>
-          <form onSubmit={handleSearchSubmit} className="relative group flex-1 max-w-[320px]">
+          <form
+            onSubmit={(e) => e.preventDefault()}
+            className="relative group flex-1 max-w-[320px]"
+          >
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="搜索单词..."

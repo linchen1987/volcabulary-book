@@ -171,8 +171,12 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
                 </div>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm px-1">
-                    <span className="text-muted-foreground">总单词</span>
-                    <span className="font-semibold">{stats.total}</span>
+                    <span className="text-muted-foreground">单词</span>
+                    <span className="font-semibold">{stats.words}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm px-1">
+                    <span className="text-muted-foreground">词组</span>
+                    <span className="font-semibold">{stats.phrases}</span>
                   </div>
                   {Object.keys(stats.byLevel)
                     .map(Number)

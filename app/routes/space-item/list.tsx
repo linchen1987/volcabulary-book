@@ -5,6 +5,7 @@ import {
   BookOpen,
   CloudDownload,
   Edit2,
+  Eye,
   MoreVertical,
   Plus,
   Search as SearchIcon,
@@ -347,6 +348,7 @@ export default function WordListPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="rounded-2xl p-2 min-w-[120px]">
                         <DropdownMenuItem onClick={() => openViewDialog(word.id)}>
+                          <Eye className="w-4 h-4 mr-2" />
                           详情
                         </DropdownMenuItem>
                         <DropdownMenuItem

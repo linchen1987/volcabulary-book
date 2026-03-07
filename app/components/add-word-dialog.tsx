@@ -81,6 +81,7 @@ export function AddWordDialog({
 
   const [relatedWords, setRelatedWords] = useState<Word[]>([]);
   const [relatedWordIds, setRelatedWordIds] = useState<string[]>([]);
+  const [originalRelatedWordIds, setOriginalRelatedWordIds] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Word[]>([]);
 
@@ -110,8 +111,10 @@ export function AddWordDialog({
   useEffect(() => {
     if (wordId && (mode === 'edit' || mode === 'view')) {
       WordService.getRelatedWords(wordId).then((words) => {
+        const ids = words.map((w) => w.id);
         setRelatedWords(words);
-        setRelatedWordIds(words.map((w) => w.id));
+        setRelatedWordIds(ids);
+        setOriginalRelatedWordIds(ids);
       });
     }
   }, [wordId, mode]);
@@ -137,6 +140,7 @@ export function AddWordDialog({
     setLevel(1);
     setRelatedWordIds([]);
     setRelatedWords([]);
+    setOriginalRelatedWordIds([]);
     setSearchQuery('');
     setSearchResults([]);
     setCurrentMode('add');
@@ -175,42 +179,17 @@ export function AddWordDialog({
     setSearchResults(filtered);
   };
 
-  const handleAddRelatedWord = async (relatedWord: Word) => {
-    if (wordId && currentMode === 'edit') {
-      try {
-        await WordService.addRelatedWord(wordId, relatedWord.id);
-        const updated = await WordService.getRelatedWords(wordId);
-        setRelatedWords(updated);
-        setRelatedWordIds(updated.map((w) => w.id));
-        toast.success('已添加相关词');
-      } catch (error) {
-        console.error(error);
-        toast.error('添加失败');
-      }
-    } else {
-      setRelatedWordIds([...relatedWordIds, relatedWord.id]);
-      setRelatedWords([...relatedWords, relatedWord]);
-    }
+  const handleAddRelatedWord = (relatedWord: Word) => {
+    if (relatedWordIds.includes(relatedWord.id)) return;
+    setRelatedWordIds([...relatedWordIds, relatedWord.id]);
+    setRelatedWords([...relatedWords, relatedWord]);
     setSearchQuery('');
     setSearchResults([]);
   };
 
-  const handleRemoveRelatedWord = async (relatedWordId: string) => {
-    if (wordId && currentMode === 'edit') {
-      try {
-        await WordService.removeRelatedWord(wordId, relatedWordId);
-        const updated = await WordService.getRelatedWords(wordId);
-        setRelatedWords(updated);
-        setRelatedWordIds(updated.map((w) => w.id));
-        toast.success('已移除相关词');
-      } catch (error) {
-        console.error(error);
-        toast.error('移除失败');
-      }
-    } else {
-      setRelatedWordIds(relatedWordIds.filter((id) => id !== relatedWordId));
-      setRelatedWords(relatedWords.filter((w) => w.id !== relatedWordId));
-    }
+  const handleRemoveRelatedWord = (relatedWordId: string) => {
+    setRelatedWordIds(relatedWordIds.filter((id) => id !== relatedWordId));
+    setRelatedWords(relatedWords.filter((w) => w.id !== relatedWordId));
   };
 
   const handleSubmit = useCallback(async () => {
@@ -229,6 +208,9 @@ export function AddWordDialog({
         }));
 
       if (currentMode === 'edit' && wordId) {
+        const toAdd = relatedWordIds.filter((id) => !originalRelatedWordIds.includes(id));
+        const toRemove = originalRelatedWordIds.filter((id) => !relatedWordIds.includes(id));
+
         await WordService.updateWord(wordId, {
           content: content.trim(),
           phonetic: phonetic.trim() || undefined,
@@ -237,6 +219,14 @@ export function AddWordDialog({
           usages: filteredUsages.length > 0 ? filteredUsages : undefined,
           level,
         });
+
+        for (const relatedId of toAdd) {
+          await WordService.addRelatedWord(wordId, relatedId);
+        }
+        for (const relatedId of toRemove) {
+          await WordService.removeRelatedWord(wordId, relatedId);
+        }
+
         toast.success('保存成功');
       } else {
         const newWordId = await WordService.createWord(spaceId, {
@@ -262,7 +252,9 @@ export function AddWordDialog({
       syncPush(spaceId);
     } catch (error) {
       console.error(error);
-      toast.error(currentMode === 'edit' ? '保存失败' : '添加失败');
+      const message =
+        error instanceof Error ? error.message : currentMode === 'edit' ? '保存失败' : '添加失败';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -363,7 +355,7 @@ export function AddWordDialog({
             <>
               <div className="space-y-6 py-4 px-6 overflow-y-auto flex-1">
                 <div className="space-y-2">
-                  <Label>单词/短语/句子</Label>
+                  <Label>单词/短语</Label>
                   <div className="text-lg font-semibold">{word?.content}</div>
                 </div>
 
@@ -441,7 +433,7 @@ export function AddWordDialog({
             <>
               <div className="space-y-6 py-4 px-6 overflow-y-auto flex-1">
                 <div className="space-y-2">
-                  <Label htmlFor="content">单词/短语/句子 *</Label>
+                  <Label htmlFor="content">单词/短语 *</Label>
                   <Input
                     id="content"
                     value={content}
@@ -451,38 +443,43 @@ export function AddWordDialog({
                   />
                 </div>
 
-                <div className="space-y-3">
-                  <Label>相关词</Label>
-                  {relatedWords.length > 0 && (
-                    <div className="space-y-2">
-                      {relatedWords.map((rw) => (
-                        <div
-                          key={rw.id}
-                          className="flex items-center justify-between p-2 border rounded-md bg-muted/30"
-                        >
-                          <span className="text-sm flex-1">{rw.content}</span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveRelatedWord(rw.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <div className="space-y-2">
+                  <Label>翻译</Label>
+                  <Input
+                    value={translation}
+                    onChange={(e) => setTranslation(e.target.value)}
+                    placeholder="输入翻译"
+                    className="font-medium"
+                    disabled={isReadOnly}
+                  />
+                </div>
 
-                  <div className="relative">
-                    <Input
+                <div className="space-y-2">
+                  <Label>相关词</Label>
+                  <div className="relative flex flex-wrap items-center gap-1.5 p-2 border rounded-md min-h-[42px]">
+                    {relatedWords.map((rw) => (
+                      <span
+                        key={rw.id}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-primary/10 hover:bg-primary/20 rounded-full transition-colors"
+                      >
+                        {rw.content}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveRelatedWord(rw.id)}
+                          className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-primary/30"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    ))}
+                    <input
                       value={searchQuery}
                       onChange={(e) => handleSearchWords(e.target.value)}
-                      placeholder="搜索单词添加为相关词..."
-                      className="w-full"
+                      placeholder={relatedWords.length > 0 ? '' : '搜索单词...'}
+                      className="flex-1 min-w-[100px] text-sm bg-transparent outline-none placeholder:text-muted-foreground"
                     />
                     {searchResults.length > 0 && (
-                      <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
                         {searchResults.map((result) => (
                           <button
                             key={result.id}
@@ -504,50 +501,37 @@ export function AddWordDialog({
                 </div>
 
                 <div className="space-y-3">
-                  <Label>翻译</Label>
-                  <Input
-                    value={translation}
-                    onChange={(e) => setTranslation(e.target.value)}
-                    placeholder="输入翻译"
-                    className="font-medium"
-                    disabled={isReadOnly}
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label>例句</Label>
+                    {!isReadOnly && (
+                      <Button variant="ghost" size="sm" onClick={addUsage}>
+                        <Plus className="w-3 h-3 mr-1" /> 添加
+                      </Button>
+                    )}
+                  </div>
                   <div className="space-y-2">
                     {usages.map((usage) => (
-                      <div key={usage.id} className="space-y-2 pl-3 border-l-2 border-muted">
+                      <div key={usage.id} className="flex items-start gap-2">
                         <Input
                           value={usage.sentence}
                           onChange={(e) => handleUsageChange(usage.id, 'sentence', e.target.value)}
                           placeholder="例句（可选）"
                           disabled={isReadOnly}
-                        />
-                        <Input
-                          value={usage.translation}
-                          onChange={(e) =>
-                            handleUsageChange(usage.id, 'translation', e.target.value)
-                          }
-                          placeholder="例句翻译（可选）"
-                          className="text-muted-foreground"
-                          disabled={isReadOnly}
+                          className="flex-1"
                         />
                         {usages.length > 1 && !isReadOnly && (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => removeUsage(usage.id)}
-                            className="text-muted-foreground hover:text-destructive"
+                            className="text-muted-foreground hover:text-destructive shrink-0"
                           >
-                            删除例句
+                            <X className="w-3 h-3" />
                           </Button>
                         )}
                       </div>
                     ))}
                   </div>
-                  {!isReadOnly && (
-                    <Button variant="outline" size="sm" onClick={addUsage} className="w-full">
-                      <Plus className="w-3 h-3 mr-1" /> 添加例句
-                    </Button>
-                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

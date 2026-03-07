@@ -84,7 +84,8 @@ export default function NewWordPage() {
       navigate(`/spaces/${spaceToken}`);
     } catch (error) {
       console.error(error);
-      toast.error('添加失败');
+      const message = error instanceof Error ? error.message : '添加失败';
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -109,7 +110,7 @@ export default function NewWordPage() {
         <Card>
           <CardContent className="p-6 space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="content">单词/短语/句子 *</Label>
+              <Label htmlFor="content">单词/短语 *</Label>
               <Input
                 id="content"
                 value={content}

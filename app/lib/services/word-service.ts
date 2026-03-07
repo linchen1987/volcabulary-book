@@ -3,6 +3,8 @@ import type { Space, Word } from '~/lib/types';
 
 export interface WordStats {
   total: number;
+  words: number;
+  phrases: number;
   byLevel: Record<number, number>;
 }
 
@@ -125,8 +127,13 @@ export const WordService = {
       byLevel[word.level] = (byLevel[word.level] || 0) + 1;
     }
 
+    const wordCount = words.filter((w) => !w.content.includes(' ')).length;
+    const phraseCount = words.filter((w) => w.content.includes(' ')).length;
+
     return {
       total: words.length,
+      words: wordCount,
+      phrases: phraseCount,
       byLevel,
     };
   },
@@ -139,12 +146,23 @@ export const WordService = {
     spaceId: string,
     data: Partial<Omit<Word, 'id' | 'spaceId' | 'createdAt' | 'updatedAt'>>,
   ): Promise<string> {
+    const content = data.content?.trim() || '';
+    if (!content) {
+      throw new Error('单词内容不能为空');
+    }
+
+    const existingWords = await db.words.where('spaceId').equals(spaceId).toArray();
+    const duplicate = existingWords.find((w) => w.content.toLowerCase() === content.toLowerCase());
+    if (duplicate) {
+      throw new Error('该单词已存在');
+    }
+
     const id = generateId();
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
       await db.words.add({
         id,
         spaceId,
-        content: data.content || '',
+        content,
         description: data.description,
         translation: data.translation,
         usages: data.usages,
@@ -211,7 +229,6 @@ export const WordService = {
 
       await db.words.update(relatedWordId, {
         relatedWordIds: Array.from(relatedWordRelatedIds),
-        updatedAt: Date.now(),
       });
     });
   },
@@ -233,7 +250,6 @@ export const WordService = {
         const updatedIds = relatedWord.relatedWordIds.filter((id) => id !== wordId);
         await db.words.update(relatedWordId, {
           relatedWordIds: updatedIds.length > 0 ? updatedIds : undefined,
-          updatedAt: Date.now(),
         });
       }
     });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertCircle, Edit2, Plus, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Edit2, Plus, Save, Trash2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -55,6 +55,7 @@ interface AddWordDialogProps {
   mode?: Mode;
   wordId?: string;
   onSuccess?: () => void;
+  onNavigateToWord?: (wordId: string, mode: 'edit' | 'view') => void;
 }
 
 export function AddWordDialog({
@@ -64,6 +65,7 @@ export function AddWordDialog({
   mode = 'add',
   wordId,
   onSuccess,
+  onNavigateToWord,
 }: AddWordDialogProps) {
   const word = useLiveQuery(() => (wordId ? WordService.getWord(wordId) : undefined), [wordId]);
   const [currentMode, setCurrentMode] = useState<Mode>(mode);
@@ -98,16 +100,20 @@ export function AddWordDialog({
   }, [mode]);
 
   useEffect(() => {
-    if (currentMode !== 'add' || !content.trim()) {
+    if (currentMode === 'view' || !content.trim()) {
       setExistingWord(null);
       return;
     }
     const timer = setTimeout(async () => {
       const found = await WordService.checkWordExists(spaceId, content);
-      setExistingWord(found ?? null);
+      if (found && found.id !== wordId) {
+        setExistingWord(found);
+      } else {
+        setExistingWord(null);
+      }
     }, 300);
     return () => clearTimeout(timer);
-  }, [content, spaceId, currentMode]);
+  }, [content, spaceId, currentMode, wordId]);
 
   useEffect(() => {
     if (word && (mode === 'edit' || mode === 'view')) {
@@ -282,6 +288,7 @@ export function AddWordDialog({
     relatedWordIds,
     currentMode,
     wordId,
+    originalRelatedWordIds,
     resetForm,
     onOpenChange,
     onSuccess,
@@ -317,6 +324,11 @@ export function AddWordDialog({
       resetForm();
     }
     onOpenChange(newOpen);
+  };
+
+  const handleNavigateToExistingWord = () => {
+    if (!existingWord) return;
+    onNavigateToWord?.(existingWord.id, 'edit');
   };
 
   const getDialogTitle = () => {
@@ -450,14 +462,43 @@ export function AddWordDialog({
                     disabled={isReadOnly}
                     className={
                       existingWord
-                        ? 'border-destructive focus-visible:ring-destructive mt-1.5'
+                        ? 'border-amber-500 focus-visible:ring-amber-500 mt-1.5'
                         : 'mt-1.5'
                     }
                   />
-                  {existingWord && currentMode === 'add' && (
-                    <div className="flex items-center gap-1.5 text-xs text-destructive mt-1.5">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                      <span>该单词已存在</span>
+                  {existingWord && (
+                    <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                            该单词已存在
+                          </div>
+                          <div className="mt-1.5 flex items-baseline gap-2">
+                            <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">
+                              {existingWord.content}
+                            </span>
+                            {existingWord.phonetic && (
+                              <span className="text-xs text-amber-600 dark:text-amber-400">
+                                {existingWord.phonetic}
+                              </span>
+                            )}
+                          </div>
+                          {existingWord.translation && (
+                            <div className="text-xs text-amber-700 dark:text-amber-300 mt-0.5 truncate">
+                              {existingWord.translation}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleNavigateToExistingWord}
+                          className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/40 hover:bg-amber-200 dark:hover:bg-amber-900/60 rounded-md transition-colors shrink-0"
+                        >
+                          去编辑
+                          <ArrowRight className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

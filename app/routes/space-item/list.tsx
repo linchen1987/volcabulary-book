@@ -294,6 +294,14 @@ export default function WordListPage() {
     WordService.getStats(spaceId).then(setStats);
   };
 
+  const handleNavigateToWord = (wordId: string, mode: 'edit' | 'view') => {
+    closeDialog();
+    setTimeout(() => {
+      setSelectedWordId(wordId);
+      setDialogMode(mode);
+    }, 0);
+  };
+
   if (!space) return null;
 
   return (
@@ -512,6 +520,7 @@ export default function WordListPage() {
         mode={dialogMode || 'add'}
         wordId={selectedWordId}
         onSuccess={handleDialogSuccess}
+        onNavigateToWord={handleNavigateToWord}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

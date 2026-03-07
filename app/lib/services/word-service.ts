@@ -51,6 +51,13 @@ export const SpaceService = {
   },
 };
 
+function splitContent(content: string): string[] {
+  return content
+    .split('/')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 export const WordService = {
   async getWordsBySpace(
     spaceId: string,
@@ -184,7 +191,11 @@ export const WordService = {
     }
 
     const existingWords = await db.words.where('spaceId').equals(spaceId).toArray();
-    const duplicate = existingWords.find((w) => w.content.toLowerCase() === content.toLowerCase());
+    const newTokens = splitContent(content);
+    const duplicate = existingWords.find((word) => {
+      const existingTokens = splitContent(word.content);
+      return newTokens.some((nt) => existingTokens.includes(nt));
+    });
     if (duplicate) {
       throw new Error('该单词已存在');
     }
@@ -300,9 +311,16 @@ export const WordService = {
   },
 
   async checkWordExists(spaceId: string, content: string): Promise<Word | undefined> {
-    const trimmedContent = content.trim().toLowerCase();
+    const trimmedContent = content.trim();
     if (!trimmedContent) return undefined;
-    const words = await db.words.where('spaceId').equals(spaceId).toArray();
-    return words.find((w) => w.content.toLowerCase() === trimmedContent);
+
+    const newTokens = splitContent(trimmedContent);
+    if (newTokens.length === 0) return undefined;
+
+    const existingWords = await db.words.where('spaceId').equals(spaceId).toArray();
+    return existingWords.find((word) => {
+      const existingTokens = splitContent(word.content);
+      return newTokens.some((nt) => existingTokens.includes(nt));
+    });
   },
 };

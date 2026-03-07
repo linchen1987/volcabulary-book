@@ -449,7 +449,7 @@ export function AddWordDialog({
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                     placeholder="输入要记忆的内容"
-                    disabled={isReadOnly || currentMode === 'edit'}
+                    disabled={isReadOnly}
                     className={
                       existingWord
                         ? 'border-destructive focus-visible:ring-destructive mt-1.5'

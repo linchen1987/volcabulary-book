@@ -56,6 +56,7 @@ export const WordService = {
     spaceId: string,
     options?: {
       limit?: number;
+      offset?: number;
       sortBy?: SortField;
       sortOrder?: SortOrder;
       levelFilter?: number;
@@ -108,15 +109,46 @@ export const WordService = {
       return sortOrder === 'desc' ? -comparison : comparison;
     });
 
+    const offset = options?.offset || 0;
     if (options?.limit) {
-      words = words.slice(0, options.limit);
+      words = words.slice(offset, offset + options.limit);
     }
 
     return words;
   },
 
-  async getWordCountBySpace(spaceId: string): Promise<number> {
-    return db.words.where('spaceId').equals(spaceId).count();
+  async getWordCountBySpace(
+    spaceId: string,
+    options?: {
+      levelFilter?: number;
+      search?: string;
+    },
+  ): Promise<number> {
+    let words = await db.words.where('spaceId').equals(spaceId).toArray();
+
+    if (options?.levelFilter !== undefined) {
+      words = words.filter((w) => w.level === options.levelFilter);
+    }
+
+    if (options?.search) {
+      const searchLower = options.search.toLowerCase();
+      words = words.filter((w) => {
+        if (w.content.toLowerCase().includes(searchLower)) return true;
+        if (w.translation?.toLowerCase().includes(searchLower)) return true;
+        if (
+          w.usages?.some(
+            (u) =>
+              u.sentence.toLowerCase().includes(searchLower) ||
+              u.translation?.toLowerCase().includes(searchLower),
+          )
+        )
+          return true;
+        if (w.description?.toLowerCase().includes(searchLower)) return true;
+        return false;
+      });
+    }
+
+    return words.length;
   },
 
   async getStats(spaceId: string): Promise<WordStats> {

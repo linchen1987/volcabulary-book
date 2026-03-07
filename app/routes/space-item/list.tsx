@@ -1,18 +1,18 @@
 'use client';
 
-import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BookOpen,
   CloudDownload,
   Edit2,
   Eye,
+  Loader2,
   MoreVertical,
   Plus,
   Search as SearchIcon,
   Trash2,
   X,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { AddWordDialog } from '~/components/add-word-dialog';
@@ -61,6 +61,8 @@ const SORT_OPTIONS: { value: string; label: string }[] = [
 
 type DialogMode = 'add' | 'edit' | 'view' | null;
 
+const PAGE_SIZE = 20;
+
 export default function WordListPage() {
   const { spaceToken } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -79,6 +81,14 @@ export default function WordListPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [wordToDelete, setWordToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [space, setSpace] = useState<Awaited<ReturnType<typeof SpaceService.getSpace>>>();
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof WordService.getStats>>>();
+  const [words, setWords] = useState<Word[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { isSyncing, syncPull, ensurePulled, syncPush } = useSyncStore();
 
@@ -114,18 +124,68 @@ export default function WordListPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [dialogMode]);
 
-  const space = useLiveQuery(() => SpaceService.getSpace(spaceId), [spaceId]);
-  const stats = useLiveQuery(() => WordService.getStats(spaceId), [spaceId]);
-  const words = useLiveQuery(
-    () =>
-      WordService.getWordsBySpace(spaceId, {
-        search: q,
-        levelFilter,
-        sortBy,
-        sortOrder,
-      }),
+  useEffect(() => {
+    SpaceService.getSpace(spaceId).then(setSpace);
+    WordService.getStats(spaceId).then(setStats);
+  }, [spaceId]);
+
+  const loadWords = useCallback(
+    async (offset: number, append: boolean) => {
+      if (offset === 0) {
+        setIsLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+
+      try {
+        const result = await WordService.getWordsBySpace(spaceId, {
+          search: q,
+          levelFilter,
+          sortBy,
+          sortOrder,
+          limit: PAGE_SIZE,
+          offset,
+        });
+
+        const count = await WordService.getWordCountBySpace(spaceId, {
+          search: q,
+          levelFilter,
+        });
+
+        if (append) {
+          setWords((prev) => [...prev, ...result]);
+        } else {
+          setWords(result);
+        }
+        setHasMore(offset + result.length < count);
+      } finally {
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
     [spaceId, q, levelFilter, sortBy, sortOrder],
   );
+
+  useEffect(() => {
+    loadWords(0, false);
+  }, [loadWords]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoadingMore && !isLoading) {
+          loadWords(words.length, true);
+        }
+      },
+      { threshold: 0.1 },
+    );
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, isLoading, words.length, loadWords]);
 
   const clearSearch = () => {
     setInputQuery('');
@@ -176,6 +236,8 @@ export default function WordListPage() {
 
   const handlePull = async () => {
     await syncPull(spaceId);
+    loadWords(0, false);
+    WordService.getStats(spaceId).then(setStats);
   };
 
   const handleDeleteWord = async () => {
@@ -186,6 +248,8 @@ export default function WordListPage() {
       await WordService.deleteWord(wordToDelete);
       toast.success('单词已删除');
       syncPush(spaceId);
+      loadWords(0, false);
+      WordService.getStats(spaceId).then(setStats);
     } catch (error) {
       console.error(error);
       toast.error('删除失败');
@@ -219,6 +283,11 @@ export default function WordListPage() {
   const closeDialog = () => {
     setDialogMode(null);
     setSelectedWordId(undefined);
+  };
+
+  const handleDialogSuccess = () => {
+    loadWords(0, false);
+    WordService.getStats(spaceId).then(setStats);
   };
 
   if (!space) return null;
@@ -375,7 +444,7 @@ export default function WordListPage() {
             );
           })}
 
-          {words?.length === 0 && (
+          {words?.length === 0 && !isLoading && (
             <div className="flex flex-col items-center justify-center py-32 text-center">
               <div className="w-16 h-16 bg-muted rounded-full flex items-center justify-center mb-4">
                 <SearchIcon className="w-8 h-8 text-muted-foreground/50" />
@@ -402,6 +471,24 @@ export default function WordListPage() {
               )}
             </div>
           )}
+
+          {isLoading && (
+            <div className="flex justify-center py-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          )}
+
+          {!isLoading && hasMore && words.length > 0 && (
+            <div ref={loadMoreRef} className="flex justify-center py-8">
+              {isLoadingMore && <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />}
+            </div>
+          )}
+
+          {!hasMore && words.length > 0 && (
+            <div className="text-center py-8 text-sm text-muted-foreground">
+              已加载全部 {words.length} 个单词
+            </div>
+          )}
         </div>
       </div>
 
@@ -420,6 +507,7 @@ export default function WordListPage() {
         spaceId={spaceId}
         mode={dialogMode || 'add'}
         wordId={selectedWordId}
+        onSuccess={handleDialogSuccess}
       />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

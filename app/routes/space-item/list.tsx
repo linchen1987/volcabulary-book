@@ -1,16 +1,26 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { ArrowUpDown, BookOpen, Edit2, Plus, Search as SearchIcon, X } from 'lucide-react';
+import {
+  ArrowUpDown,
+  BookOpen,
+  CloudDownload,
+  Edit2,
+  Plus,
+  Search as SearchIcon,
+  X,
+} from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router';
 import { AddWordDialog } from '~/components/add-word-dialog';
 import { PageHeader } from '~/components/page-header';
+import { SyncStatus } from '~/components/sync-status';
 import { Button } from '~/components/ui/button';
 import { Card } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import type { SortField, SortOrder } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
+import { useSyncStore } from '~/lib/stores/sync-store';
 import type { Word } from '~/lib/types';
 import { cn } from '~/lib/utils';
 import { parseSpaceId } from '~/lib/utils/token';
@@ -39,6 +49,11 @@ export default function WordListPage() {
   const [inputQuery, setInputQuery] = useState(q);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [visibleTranslations, setVisibleTranslations] = useState<Set<string>>(new Set());
+  const { isSyncing, syncPull, ensurePulled } = useSyncStore();
+
+  useEffect(() => {
+    ensurePulled(spaceId);
+  }, [spaceId, ensurePulled]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -118,13 +133,28 @@ export default function WordListPage() {
     });
   };
 
+  const handlePull = async () => {
+    await syncPull(spaceId);
+  };
+
   if (!space) return null;
 
   return (
     <>
       <PageHeader title={space.name}>
-        <div className="flex items-center gap-1 w-full max-w-[320px] justify-end">
-          <form onSubmit={handleSearchSubmit} className="relative group w-full">
+        <div className="flex items-center gap-3 w-full max-w-[500px] justify-end">
+          <SyncStatus spaceId={spaceId} isSyncing={isSyncing} />
+          <Button
+            onClick={handlePull}
+            disabled={isSyncing}
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0"
+            title="从远程拉取数据"
+          >
+            <CloudDownload className={`w-4 h-4 ${isSyncing ? 'animate-pulse' : ''}`} />
+          </Button>
+          <form onSubmit={handleSearchSubmit} className="relative group flex-1 max-w-[320px]">
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="搜索单词..."

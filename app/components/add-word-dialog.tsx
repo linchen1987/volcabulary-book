@@ -16,6 +16,7 @@ import {
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { WordService } from '~/lib/services/word-service';
+import { useSyncStore } from '~/lib/stores/sync-store';
 import type { Word } from '~/lib/types';
 
 interface UsageItem {
@@ -46,6 +47,7 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Word[]>([]);
   const handleSubmitRef = useRef<(() => void) | null>(null);
+  const { syncPush } = useSyncStore();
 
   useEffect(() => {
     if (!open) return;
@@ -149,6 +151,8 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
       resetForm();
       onOpenChange(false);
       onSuccess?.();
+
+      syncPush(spaceId);
     } catch (error) {
       console.error(error);
       toast.error('添加失败');
@@ -167,6 +171,7 @@ export function AddWordDialog({ open, onOpenChange, spaceId, onSuccess }: AddWor
     resetForm,
     onOpenChange,
     onSuccess,
+    syncPush,
   ]);
 
   handleSubmitRef.current = handleSubmit;

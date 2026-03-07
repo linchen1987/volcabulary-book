@@ -142,16 +142,6 @@ export default function SpaceSettingsPage() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>存储配置</CardTitle>
-              <CardDescription>配置数据同步的存储后端</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <StorageConfig />
-            </CardContent>
-          </Card>
-
           {FsService.isConfigured() && (
             <Card>
               <CardHeader>
@@ -170,6 +160,16 @@ export default function SpaceSettingsPage() {
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>存储配置</CardTitle>
+              <CardDescription>配置数据同步的存储后端</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <StorageConfig />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

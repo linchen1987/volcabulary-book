@@ -22,6 +22,7 @@ import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { SpaceService, WordService } from '~/lib/services/word-service';
+import { useSyncStore } from '~/lib/stores/sync-store';
 import type { Word } from '~/lib/types';
 import { parseSpaceId } from '~/lib/utils/token';
 
@@ -66,6 +67,7 @@ export default function WordDetailPage() {
   const [relatedWords, setRelatedWords] = useState<Word[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Word[]>([]);
+  const { syncPush } = useSyncStore();
 
   useEffect(() => {
     if (word && searchParams.get('edit') === 'true') {
@@ -148,6 +150,8 @@ export default function WordDetailPage() {
 
       toast.success('保存成功');
       setIsEditing(false);
+
+      syncPush(spaceId);
     } catch (error) {
       console.error(error);
       toast.error('保存失败');
@@ -161,6 +165,7 @@ export default function WordDetailPage() {
     try {
       await WordService.deleteWord(wId);
       toast.success('单词已删除');
+      syncPush(spaceId);
       navigate(`/spaces/${spaceToken}`);
     } catch (error) {
       console.error(error);

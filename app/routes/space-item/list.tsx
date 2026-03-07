@@ -93,10 +93,6 @@ export default function WordListPage() {
   const { isSyncing, syncPull, ensurePulled, syncPush } = useSyncStore();
 
   useEffect(() => {
-    ensurePulled(spaceId);
-  }, [spaceId, ensurePulled]);
-
-  useEffect(() => {
     const timer = setTimeout(() => {
       const params = new URLSearchParams(searchParams);
       if (inputQuery) {
@@ -169,6 +165,14 @@ export default function WordListPage() {
   useEffect(() => {
     loadWords(0, false);
   }, [loadWords]);
+
+  useEffect(() => {
+    ensurePulled(spaceId, async () => {
+      loadWords(0, false);
+      const newStats = await WordService.getStats(spaceId);
+      setStats(newStats);
+    });
+  }, [spaceId, ensurePulled, loadWords]);
 
   useEffect(() => {
     const observer = new IntersectionObserver(

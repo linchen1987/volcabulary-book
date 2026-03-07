@@ -14,7 +14,7 @@ interface SyncState {
   ) => Promise<void>;
   syncPull: (spaceId: string, onSyncComplete?: () => Promise<void>) => Promise<void>;
   getHasPulledInSession: (spaceId: string) => boolean;
-  ensurePulled: (spaceId: string) => Promise<boolean>;
+  ensurePulled: (spaceId: string, onSyncComplete?: () => Promise<void>) => Promise<boolean>;
 }
 
 export const useSyncStore = create<SyncState>((set, get) => ({
@@ -85,13 +85,14 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   getHasPulledInSession: (spaceId: string) => {
     return sessionStorage.getItem(`vocab-book:pull:${spaceId}`) === 'true';
   },
-  ensurePulled: async (spaceId: string) => {
+  ensurePulled: async (spaceId: string, onSyncComplete?: () => Promise<void>) => {
     const hasPulled = get().getHasPulledInSession(spaceId);
 
     if (!hasPulled) {
       try {
         await SyncService.pull(spaceId);
         sessionStorage.setItem(`vocab-book:pull:${spaceId}`, 'true');
+        await onSyncComplete?.();
         toast.success('数据拉取成功');
         return true;
       } catch (e) {

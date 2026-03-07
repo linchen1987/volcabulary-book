@@ -156,6 +156,7 @@ export function AddWordDialog({
     setSearchQuery('');
     setSearchResults([]);
     setCurrentMode('add');
+    setExistingWord(null);
   }, []);
 
   const handleUsageChange = (usageId: string, field: 'sentence' | 'translation', value: string) => {
@@ -329,7 +330,10 @@ export function AddWordDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0">
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] flex flex-col p-0"
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader className="px-6 pt-5 pb-0">
             <DialogTitle className="text-base">{getDialogTitle()}</DialogTitle>
           </DialogHeader>
@@ -386,18 +390,12 @@ export function AddWordDialog({
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-6">
-                  <div>
-                    <Label className="text-muted-foreground text-xs">音标</Label>
-                    <div className="text-sm mt-1">{word?.phonetic || '-'}</div>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground text-xs">记忆难度</Label>
-                    <div className="mt-1">
-                      <span className="px-2 py-0.5 bg-primary/10 rounded text-sm font-medium">
-                        Lv.{word?.level ?? 1}
-                      </span>
-                    </div>
+                <div>
+                  <Label className="text-muted-foreground text-xs">记忆难度</Label>
+                  <div className="mt-1">
+                    <span className="px-2 py-0.5 bg-primary/10 rounded text-sm font-medium">
+                      Lv.{word?.level ?? 1}
+                    </span>
                   </div>
                 </div>
 
@@ -555,36 +553,20 @@ export function AddWordDialog({
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="phonetic" className="text-muted-foreground text-xs">
-                      音标
-                    </Label>
-                    <Input
-                      id="phonetic"
-                      value={phonetic}
-                      onChange={(e) => setPhonetic(e.target.value)}
-                      placeholder="/ˈɪŋɡlɪʃ/"
-                      disabled={isReadOnly}
-                      className="mt-1.5"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="level" className="text-muted-foreground text-xs">
-                      记忆难度
-                    </Label>
-                    <Input
-                      id="level"
-                      type="number"
-                      min={0}
-                      max={10}
-                      value={level}
-                      onChange={(e) => setLevel(Number(e.target.value) || 1)}
-                      disabled={isReadOnly}
-                      className="mt-1.5"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="level" className="text-muted-foreground text-xs">
+                    记忆难度
+                  </Label>
+                  <Input
+                    id="level"
+                    type="number"
+                    min={0}
+                    max={10}
+                    value={level}
+                    onChange={(e) => setLevel(Number(e.target.value) || 1)}
+                    disabled={isReadOnly}
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>

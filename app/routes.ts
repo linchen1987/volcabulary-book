@@ -7,7 +7,6 @@ export default [
 
   route('spaces/:spaceToken', 'routes/space-item/layout.tsx', [
     index('routes/space-item/list.tsx'),
-    route('new', 'routes/space-item/new.tsx'),
     route('quiz', 'routes/space-item/quiz.tsx'),
     route('settings', 'routes/space-item/settings.tsx'),
     route('manifest.webmanifest', 'routes/manifest.tsx'),

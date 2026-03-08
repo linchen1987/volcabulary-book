@@ -5,6 +5,7 @@ import { AlertCircle, ArrowRight, Edit2, Plus, Save, Trash2, X } from 'lucide-re
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
+import { LevelSelector } from '~/components/level-selector';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -447,11 +448,7 @@ export function AddWordDialog({
 
                 <div>
                   <Label className="text-muted-foreground text-xs">记忆难度</Label>
-                  <div className="mt-1">
-                    <span className="px-2 py-0.5 bg-primary/10 rounded text-sm font-medium">
-                      Lv.{word?.level ?? 1}
-                    </span>
-                  </div>
+                  <LevelSelector value={word?.level ?? 1} className="mt-3" />
                 </div>
 
                 {word?.description && (
@@ -640,18 +637,12 @@ export function AddWordDialog({
                 </div>
 
                 <div>
-                  <Label htmlFor="level" className="text-muted-foreground text-xs">
-                    记忆难度
-                  </Label>
-                  <Input
-                    id="level"
-                    type="number"
-                    min={0}
-                    max={10}
+                  <Label className="text-muted-foreground text-xs">记忆难度</Label>
+                  <LevelSelector
                     value={form.level}
-                    onChange={(e) => updateForm('level', Number(e.target.value) || 1)}
+                    onChange={(level) => updateForm('level', level)}
                     disabled={isReadOnly}
-                    className="mt-1.5"
+                    className="mt-3"
                   />
                 </div>
 

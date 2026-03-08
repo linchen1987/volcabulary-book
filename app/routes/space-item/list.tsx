@@ -453,9 +453,6 @@ export default function WordListPage() {
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
-                    <span className="px-2 py-1 bg-primary/10 rounded-full text-xs font-medium">
-                      Lv.{word.level}
-                    </span>
                   </div>
                 </div>
               </Card>

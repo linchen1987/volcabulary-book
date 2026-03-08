@@ -66,22 +66,22 @@ const toUsageItems = (word?: Word): UsageItem[] =>
       }))
     : [createEmptyUsage()];
 
-const DEFAULT_FORM_STATE: FormState = {
+const createDefaultFormState = (): FormState => ({
   content: '',
   phonetic: '',
   description: '',
   translation: '',
   usages: [createEmptyUsage()],
   level: 1,
-};
+});
 
-const DEFAULT_RELATED_STATE: RelatedWordsState = {
+const createDefaultRelatedState = (): RelatedWordsState => ({
   words: [],
   ids: [],
   originalIds: [],
   searchQuery: '',
   searchResults: [],
-};
+});
 
 interface AddWordDialogProps {
   open: boolean;
@@ -105,8 +105,8 @@ export function AddWordDialog({
   const word = useLiveQuery(() => (wordId ? WordService.getWord(wordId) : undefined), [wordId]);
   const [currentMode, setCurrentMode] = useState<Mode>(mode);
 
-  const [form, setForm] = useState<FormState>(DEFAULT_FORM_STATE);
-  const [related, setRelated] = useState<RelatedWordsState>(DEFAULT_RELATED_STATE);
+  const [form, setForm] = useState<FormState>(createDefaultFormState);
+  const [related, setRelated] = useState<RelatedWordsState>(createDefaultRelatedState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -119,8 +119,8 @@ export function AddWordDialog({
   const isReadOnly = currentMode === 'view';
 
   const resetForm = useCallback(() => {
-    setForm(DEFAULT_FORM_STATE);
-    setRelated(DEFAULT_RELATED_STATE);
+    setForm(createDefaultFormState());
+    setRelated(createDefaultRelatedState());
     setCurrentMode('add');
     setExistingWord(null);
   }, []);

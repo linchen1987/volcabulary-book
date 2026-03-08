@@ -23,6 +23,7 @@ import { Button } from '~/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { getSpaceAutoSync, setSpaceAutoSync } from '~/hooks/use-space-auto-sync';
 import { DataToolsService } from '~/lib/services/data-tools-service';
 import { FsService } from '~/lib/services/fs-service';
 import { SpaceService } from '~/lib/services/word-service';
@@ -37,7 +38,9 @@ export default function SpaceSettingsPage() {
   const space = useLiveQuery(() => SpaceService.getSpace(spaceId), [spaceId]);
 
   const [spaceName, setSpaceName] = useState('');
+  const [autoSync, setAutoSync] = useState(() => getSpaceAutoSync(spaceId));
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isSavingAutoSync, setIsSavingAutoSync] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -69,6 +72,18 @@ export default function SpaceSettingsPage() {
       toast.error('更新失败');
     } finally {
       setIsSavingName(false);
+    }
+  };
+
+  const handleToggleAutoSync = async () => {
+    const newValue = !autoSync;
+    setAutoSync(newValue);
+    setIsSavingAutoSync(true);
+    try {
+      setSpaceAutoSync(spaceId, newValue);
+      toast.success(newValue ? '已开启自动同步' : '已关闭自动同步');
+    } finally {
+      setIsSavingAutoSync(false);
     }
   };
 
@@ -121,7 +136,7 @@ export default function SpaceSettingsPage() {
           <Card>
             <CardHeader>
               <CardTitle>空间信息</CardTitle>
-              <CardDescription>修改空间名称</CardDescription>
+              <CardDescription>修改空间名称和同步设置</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -136,6 +151,26 @@ export default function SpaceSettingsPage() {
                   <Button onClick={handleSaveName} disabled={isSavingName}>
                     <Save className="w-4 h-4 mr-1" />
                     {isSavingName ? '保存中...' : '保存'}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="h-px bg-border" />
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>自动同步</Label>
+                    <p className="text-sm text-muted-foreground">创建或编辑单词后自动同步到远程</p>
+                  </div>
+                  <Button
+                    variant={autoSync ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={handleToggleAutoSync}
+                    disabled={isSavingAutoSync}
+                    className="min-w-[60px]"
+                  >
+                    {isSavingAutoSync ? '...' : autoSync ? '开启' : '关闭'}
                   </Button>
                 </div>
               </div>

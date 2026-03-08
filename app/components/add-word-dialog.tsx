@@ -25,6 +25,7 @@ import {
 } from '~/components/ui/dialog';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { useSpaceAutoSync } from '~/hooks/use-space-auto-sync';
 import { WordService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
 import type { Word } from '~/lib/types';
@@ -92,6 +93,7 @@ export function AddWordDialog({
 
   const handleSubmitRef = useRef<(() => void) | null>(null);
   const { syncPush } = useSyncStore();
+  const shouldAutoSync = useSpaceAutoSync(spaceId);
 
   const isReadOnly = currentMode === 'view';
 
@@ -268,7 +270,9 @@ export function AddWordDialog({
       onOpenChange(false);
       onSuccess?.();
 
-      syncPush(spaceId);
+      if (shouldAutoSync) {
+        syncPush(spaceId);
+      }
     } catch (error) {
       console.error(error);
       const message =
@@ -293,6 +297,7 @@ export function AddWordDialog({
     onOpenChange,
     onSuccess,
     syncPush,
+    shouldAutoSync,
   ]);
 
   handleSubmitRef.current = handleSubmit;
@@ -303,7 +308,9 @@ export function AddWordDialog({
     try {
       await WordService.deleteWord(wordId);
       toast.success('单词已删除');
-      syncPush(spaceId);
+      if (shouldAutoSync) {
+        syncPush(spaceId);
+      }
       setIsDeleteDialogOpen(false);
       onOpenChange(false);
       onSuccess?.();

@@ -13,4 +13,5 @@ export const STORAGE_KEYS = {
   LAST_SYNC_TIME_PREFIX: '@vocab-book/last_sync_',
   SIDEBAR_WIDTH: '@vocab-book/sidebar_width',
   DESKTOP_SIDEBAR_OPEN: '@vocab-book/desktop_sidebar_open',
+  SPACE_AUTO_SYNC_PREFIX: '@vocab-book/space_auto_sync_',
 } as const;

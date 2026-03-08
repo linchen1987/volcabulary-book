@@ -3,6 +3,9 @@
 ## Overview
 Vocabulary Book - A web application for recording and learning English words. Built with React 19, React Router 7, Dexie (IndexedDB), Tailwind CSS v4, and Cloudflare Workers.
 
+## Important Tips
+- 设计到 UI 改动时，先进行布局等 UI 设计，保证 ui/ux 体验, 再实现 UI. 要求: 一致、亲密、自然、舒服
+
 ## Code Style Guidelines
 
 ### Formatting (Enforced by Biome)

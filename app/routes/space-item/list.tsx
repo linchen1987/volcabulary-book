@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { Input } from '~/components/ui/input';
+import { useSpaceAutoSync } from '~/hooks/use-space-auto-sync';
 import type { SortField, SortOrder } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
@@ -91,6 +92,7 @@ export default function WordListPage() {
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
   const { isSyncing, syncPull, ensurePulled, syncPush } = useSyncStore();
+  const shouldAutoSync = useSpaceAutoSync(spaceId);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -251,7 +253,9 @@ export default function WordListPage() {
     try {
       await WordService.deleteWord(wordToDelete);
       toast.success('单词已删除');
-      syncPush(spaceId);
+      if (shouldAutoSync) {
+        syncPush(spaceId);
+      }
       loadWords(0, false);
       WordService.getStats(spaceId).then(setStats);
     } catch (error) {

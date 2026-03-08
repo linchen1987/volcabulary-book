@@ -346,6 +346,32 @@ export function AddWordDialog({
     onNavigateToWord?.(existingWord.id, 'edit');
   };
 
+  const renderActionButtons = (showEdit: boolean) =>
+    wordId && (
+      <div className="flex items-center gap-4 pt-3 border-t">
+        {showEdit && (
+          <Button
+            variant="link"
+            size="sm"
+            onClick={() => setCurrentMode('edit')}
+            className="text-primary px-0"
+          >
+            <Edit2 className="w-2 h-2" />
+            编辑
+          </Button>
+        )}
+        <Button
+          variant="link"
+          size="sm"
+          onClick={() => setIsDeleteDialogOpen(true)}
+          className="text-destructive px-0"
+        >
+          <Trash2 className="w-2 h-2" />
+          删除
+        </Button>
+      </div>
+    );
+
   const getDialogTitle = () => {
     if (currentMode === 'view') return word?.content || '单词详情';
     if (currentMode === 'edit') return '编辑单词';
@@ -434,29 +460,11 @@ export function AddWordDialog({
                     </p>
                   </div>
                 )}
+
+                {renderActionButtons(true)}
               </div>
 
               <DialogFooter className="px-6 py-3 border-t shrink-0">
-                {currentMode === 'view' && wordId && (
-                  <>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setIsDeleteDialogOpen(true)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="w-4 h-4 mr-1" />
-                      删除
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setCurrentMode('edit')}
-                      className="text-primary hover:text-primary"
-                    >
-                      <Edit2 className="w-4 h-4 mr-1" />
-                      编辑
-                    </Button>
-                  </>
-                )}
                 <Button variant="ghost" onClick={() => onOpenChange(false)}>
                   关闭
                 </Button>
@@ -638,6 +646,8 @@ export function AddWordDialog({
                     disabled={isReadOnly}
                   />
                 </div>
+
+                {currentMode === 'edit' && renderActionButtons(false)}
               </div>
 
               <DialogFooter className="px-6 py-3 border-t shrink-0">

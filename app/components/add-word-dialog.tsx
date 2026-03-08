@@ -30,24 +30,58 @@ import { WordService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
 import type { Word } from '~/lib/types';
 
+type Mode = 'add' | 'edit' | 'view';
+
 interface UsageItem {
   id: string;
   sentence: string;
   translation: string;
 }
 
-function toUsageItems(word?: Word): UsageItem[] {
-  if (word?.usages && word.usages.length > 0) {
-    return word.usages.map((u, i) => ({
-      id: String(i),
-      sentence: u.sentence,
-      translation: u.translation || '',
-    }));
-  }
-  return [{ id: '0', sentence: '', translation: '' }];
+interface FormState {
+  content: string;
+  phonetic: string;
+  description: string;
+  translation: string;
+  usages: UsageItem[];
+  level: number;
 }
 
-type Mode = 'add' | 'edit' | 'view';
+interface RelatedWordsState {
+  words: Word[];
+  ids: string[];
+  originalIds: string[];
+  searchQuery: string;
+  searchResults: Word[];
+}
+
+const createEmptyUsage = (): UsageItem => ({ id: nanoid(), sentence: '', translation: '' });
+
+const toUsageItems = (word?: Word): UsageItem[] =>
+  word?.usages?.length
+    ? word.usages.map((u, i) => ({
+        id: String(i),
+        sentence: u.sentence,
+        translation: u.translation || '',
+      }))
+    : [createEmptyUsage()];
+
+const DEFAULT_FORM_STATE: FormState = {
+  content: '',
+  phonetic: '',
+  description: '',
+  translation: '',
+  usages: [createEmptyUsage()],
+  level: 1,
+};
+
+const DEFAULT_RELATED_STATE: RelatedWordsState = {
+  words: [],
+  ids: [],
+  originalIds: [],
+  searchQuery: '',
+  searchResults: [],
+};
 
 interface AddWordDialogProps {
   open: boolean;
@@ -71,22 +105,9 @@ export function AddWordDialog({
   const word = useLiveQuery(() => (wordId ? WordService.getWord(wordId) : undefined), [wordId]);
   const [currentMode, setCurrentMode] = useState<Mode>(mode);
 
-  const [content, setContent] = useState('');
-  const [phonetic, setPhonetic] = useState('');
-  const [description, setDescription] = useState('');
-  const [translation, setTranslation] = useState('');
-  const [usages, setUsages] = useState<UsageItem[]>([
-    { id: nanoid(), sentence: '', translation: '' },
-  ]);
-  const [level, setLevel] = useState(1);
+  const [form, setForm] = useState<FormState>(DEFAULT_FORM_STATE);
+  const [related, setRelated] = useState<RelatedWordsState>(DEFAULT_RELATED_STATE);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const [relatedWords, setRelatedWords] = useState<Word[]>([]);
-  const [relatedWordIds, setRelatedWordIds] = useState<string[]>([]);
-  const [originalRelatedWordIds, setOriginalRelatedWordIds] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Word[]>([]);
-
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [existingWord, setExistingWord] = useState<Word | null>(null);
@@ -97,34 +118,53 @@ export function AddWordDialog({
 
   const isReadOnly = currentMode === 'view';
 
-  useEffect(() => {
-    setCurrentMode(mode);
-  }, [mode]);
+  const resetForm = useCallback(() => {
+    setForm(DEFAULT_FORM_STATE);
+    setRelated(DEFAULT_RELATED_STATE);
+    setCurrentMode('add');
+    setExistingWord(null);
+  }, []);
+
+  const updateForm = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const updateRelated = <K extends keyof RelatedWordsState>(
+    key: K,
+    value: RelatedWordsState[K],
+  ) => {
+    setRelated((prev) => ({ ...prev, [key]: value }));
+  };
 
   useEffect(() => {
-    if (currentMode === 'view' || !content.trim()) {
+    setCurrentMode(mode);
+    if (mode === 'add') {
+      resetForm();
+    }
+  }, [mode, resetForm]);
+
+  useEffect(() => {
+    if (currentMode === 'view' || !form.content.trim()) {
       setExistingWord(null);
       return;
     }
     const timer = setTimeout(async () => {
-      const found = await WordService.checkWordExists(spaceId, content);
-      if (found && found.id !== wordId) {
-        setExistingWord(found);
-      } else {
-        setExistingWord(null);
-      }
+      const found = await WordService.checkWordExists(spaceId, form.content);
+      setExistingWord(found && found.id !== wordId ? found : null);
     }, 300);
     return () => clearTimeout(timer);
-  }, [content, spaceId, currentMode, wordId]);
+  }, [form.content, spaceId, currentMode, wordId]);
 
   useEffect(() => {
     if (word && (mode === 'edit' || mode === 'view')) {
-      setContent(word.content);
-      setPhonetic(word.phonetic || '');
-      setDescription(word.description || '');
-      setTranslation(word.translation || '');
-      setUsages(toUsageItems(word));
-      setLevel(word.level);
+      setForm({
+        content: word.content,
+        phonetic: word.phonetic || '',
+        description: word.description || '',
+        translation: word.translation || '',
+        usages: toUsageItems(word),
+        level: word.level,
+      });
     }
   }, [word, mode]);
 
@@ -132,9 +172,7 @@ export function AddWordDialog({
     if (wordId && (mode === 'edit' || mode === 'view')) {
       WordService.getRelatedWords(wordId).then((words) => {
         const ids = words.map((w) => w.id);
-        setRelatedWords(words);
-        setRelatedWordIds(ids);
-        setOriginalRelatedWordIds(ids);
+        setRelated({ words, ids, originalIds: ids, searchQuery: '', searchResults: [] });
       });
     }
   }, [wordId, mode]);
@@ -151,77 +189,63 @@ export function AddWordDialog({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, isReadOnly]);
 
-  const resetForm = useCallback(() => {
-    setContent('');
-    setPhonetic('');
-    setDescription('');
-    setTranslation('');
-    setUsages([{ id: nanoid(), sentence: '', translation: '' }]);
-    setLevel(1);
-    setRelatedWordIds([]);
-    setRelatedWords([]);
-    setOriginalRelatedWordIds([]);
-    setSearchQuery('');
-    setSearchResults([]);
-    setCurrentMode('add');
-    setExistingWord(null);
-  }, []);
-
   const handleUsageChange = (usageId: string, field: 'sentence' | 'translation', value: string) => {
-    setUsages(
-      usages.map((u) => {
-        if (u.id !== usageId) return u;
-        return { ...u, [field]: value };
-      }),
-    );
+    setForm((prev) => ({
+      ...prev,
+      usages: prev.usages.map((u) => (u.id !== usageId ? u : { ...u, [field]: value })),
+    }));
   };
 
   const addUsage = () => {
-    setUsages([...usages, { id: nanoid(), sentence: '', translation: '' }]);
+    setForm((prev) => ({ ...prev, usages: [...prev.usages, createEmptyUsage()] }));
   };
 
   const removeUsage = (id: string) => {
-    if (usages.length > 1) {
-      setUsages(usages.filter((u) => u.id !== id));
-    }
+    setForm((prev) => ({
+      ...prev,
+      usages: prev.usages.length > 1 ? prev.usages.filter((u) => u.id !== id) : prev.usages,
+    }));
   };
 
   const handleSearchWords = async (query: string) => {
-    setSearchQuery(query);
+    updateRelated('searchQuery', query);
     if (!query.trim()) {
-      setSearchResults([]);
+      updateRelated('searchResults', []);
       return;
     }
-    const results = await WordService.getWordsBySpace(spaceId, {
-      search: query,
-      limit: 10,
-    });
-    const filtered = results.filter((w) => w.id !== wordId && !relatedWordIds.includes(w.id));
-    setSearchResults(filtered);
+    const results = await WordService.getWordsBySpace(spaceId, { search: query, limit: 10 });
+    const filtered = results.filter((w) => w.id !== wordId && !related.ids.includes(w.id));
+    updateRelated('searchResults', filtered);
   };
 
   const handleAddRelatedWord = (relatedWord: Word) => {
-    if (relatedWordIds.includes(relatedWord.id)) return;
-    setRelatedWordIds([...relatedWordIds, relatedWord.id]);
-    setRelatedWords([...relatedWords, relatedWord]);
-    setSearchQuery('');
-    setSearchResults([]);
+    if (related.ids.includes(relatedWord.id)) return;
+    setRelated((prev) => ({
+      ...prev,
+      ids: [...prev.ids, relatedWord.id],
+      words: [...prev.words, relatedWord],
+      searchQuery: '',
+      searchResults: [],
+    }));
   };
 
   const handleRemoveRelatedWord = (relatedWordId: string) => {
-    setRelatedWordIds(relatedWordIds.filter((id) => id !== relatedWordId));
-    setRelatedWords(relatedWords.filter((w) => w.id !== relatedWordId));
+    setRelated((prev) => ({
+      ...prev,
+      ids: prev.ids.filter((id) => id !== relatedWordId),
+      words: prev.words.filter((w) => w.id !== relatedWordId),
+    }));
   };
 
   const handleSubmit = useCallback(async () => {
-    if (!content.trim()) {
+    if (!form.content.trim()) {
       toast.error('请输入单词内容');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const filteredUsages = usages
+      const filteredUsages = form.usages
         .filter((u) => u.sentence.trim())
         .map((u) => ({
           sentence: u.sentence.trim(),
@@ -229,39 +253,33 @@ export function AddWordDialog({
         }));
 
       if (currentMode === 'edit' && wordId) {
-        const toAdd = relatedWordIds.filter((id) => !originalRelatedWordIds.includes(id));
-        const toRemove = originalRelatedWordIds.filter((id) => !relatedWordIds.includes(id));
+        const toAdd = related.ids.filter((id) => !related.originalIds.includes(id));
+        const toRemove = related.originalIds.filter((id) => !related.ids.includes(id));
 
         await WordService.updateWord(wordId, {
-          content: content.trim(),
-          phonetic: phonetic.trim() || undefined,
-          description: description.trim() || undefined,
-          translation: translation.trim() || undefined,
+          content: form.content.trim(),
+          phonetic: form.phonetic.trim() || undefined,
+          description: form.description.trim() || undefined,
+          translation: form.translation.trim() || undefined,
           usages: filteredUsages.length > 0 ? filteredUsages : undefined,
-          level,
+          level: form.level,
         });
 
-        for (const relatedId of toAdd) {
-          await WordService.addRelatedWord(wordId, relatedId);
-        }
-        for (const relatedId of toRemove) {
-          await WordService.removeRelatedWord(wordId, relatedId);
-        }
+        await Promise.all(toAdd.map((id) => WordService.addRelatedWord(wordId, id)));
+        await Promise.all(toRemove.map((id) => WordService.removeRelatedWord(wordId, id)));
 
         toast.success('保存成功');
       } else {
         const newWordId = await WordService.createWord(spaceId, {
-          content: content.trim(),
-          phonetic: phonetic.trim() || undefined,
-          description: description.trim() || undefined,
-          translation: translation.trim() || undefined,
+          content: form.content.trim(),
+          phonetic: form.phonetic.trim() || undefined,
+          description: form.description.trim() || undefined,
+          translation: form.translation.trim() || undefined,
           usages: filteredUsages.length > 0 ? filteredUsages : undefined,
-          level,
+          level: form.level,
         });
 
-        for (const relatedId of relatedWordIds) {
-          await WordService.addRelatedWord(newWordId, relatedId);
-        }
+        await Promise.all(related.ids.map((id) => WordService.addRelatedWord(newWordId, id)));
 
         toast.success('单词添加成功');
         resetForm();
@@ -282,22 +300,16 @@ export function AddWordDialog({
       setIsSubmitting(false);
     }
   }, [
-    content,
-    usages,
-    spaceId,
-    phonetic,
-    description,
-    translation,
-    level,
-    relatedWordIds,
+    form,
+    related,
     currentMode,
     wordId,
-    originalRelatedWordIds,
     resetForm,
     onOpenChange,
     onSuccess,
     syncPush,
     shouldAutoSync,
+    spaceId,
   ]);
 
   handleSubmitRef.current = handleSubmit;
@@ -320,10 +332,6 @@ export function AddWordDialog({
     } finally {
       setIsDeleting(false);
     }
-  };
-
-  const handleClose = () => {
-    onOpenChange(false);
   };
 
   const handleOpenChange = (newOpen: boolean) => {
@@ -365,11 +373,11 @@ export function AddWordDialog({
                   <div className="text-lg font-semibold mt-1">{word?.content}</div>
                 </div>
 
-                {relatedWords.length > 0 && (
+                {related.words.length > 0 && (
                   <div>
                     <Label className="text-muted-foreground text-xs">相关词</Label>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
-                      {relatedWords.map((rw) => (
+                      {related.words.map((rw) => (
                         <span
                           key={rw.id}
                           className="px-2.5 py-1 text-sm bg-primary/10 rounded-full"
@@ -449,7 +457,7 @@ export function AddWordDialog({
                     </Button>
                   </>
                 )}
-                <Button variant="ghost" onClick={handleClose}>
+                <Button variant="ghost" onClick={() => onOpenChange(false)}>
                   关闭
                 </Button>
               </DialogFooter>
@@ -463,8 +471,8 @@ export function AddWordDialog({
                   </Label>
                   <Input
                     id="content"
-                    value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    value={form.content}
+                    onChange={(e) => updateForm('content', e.target.value)}
                     placeholder="输入要记忆的内容"
                     disabled={isReadOnly}
                     className={
@@ -513,8 +521,8 @@ export function AddWordDialog({
                 <div>
                   <Label className="text-muted-foreground text-xs">翻译</Label>
                   <Input
-                    value={translation}
-                    onChange={(e) => setTranslation(e.target.value)}
+                    value={form.translation}
+                    onChange={(e) => updateForm('translation', e.target.value)}
                     placeholder="输入翻译"
                     className="font-medium mt-1.5"
                     disabled={isReadOnly}
@@ -524,7 +532,7 @@ export function AddWordDialog({
                 <div>
                   <Label className="text-muted-foreground text-xs">相关词</Label>
                   <div className="relative flex flex-wrap items-center gap-1.5 p-2 border rounded-md min-h-[40px] mt-1.5">
-                    {relatedWords.map((rw) => (
+                    {related.words.map((rw) => (
                       <span
                         key={rw.id}
                         className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-primary/10 rounded-full"
@@ -540,14 +548,14 @@ export function AddWordDialog({
                       </span>
                     ))}
                     <input
-                      value={searchQuery}
+                      value={related.searchQuery}
                       onChange={(e) => handleSearchWords(e.target.value)}
-                      placeholder={relatedWords.length > 0 ? '' : '搜索单词...'}
+                      placeholder={related.words.length > 0 ? '' : '搜索单词...'}
                       className="flex-1 min-w-[100px] text-sm bg-transparent outline-none placeholder:text-muted-foreground"
                     />
-                    {searchResults.length > 0 && (
+                    {related.searchResults.length > 0 && (
                       <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
-                        {searchResults.map((result) => (
+                        {related.searchResults.map((result) => (
                           <button
                             key={result.id}
                             type="button"
@@ -577,7 +585,7 @@ export function AddWordDialog({
                     )}
                   </div>
                   <div className="space-y-2">
-                    {usages.map((usage) => (
+                    {form.usages.map((usage) => (
                       <div key={usage.id} className="flex items-center gap-2">
                         <Input
                           value={usage.sentence}
@@ -586,7 +594,7 @@ export function AddWordDialog({
                           disabled={isReadOnly}
                           className="flex-1"
                         />
-                        {usages.length > 1 && !isReadOnly && (
+                        {form.usages.length > 1 && !isReadOnly && (
                           <Button
                             variant="ghost"
                             size="icon"
@@ -610,8 +618,8 @@ export function AddWordDialog({
                     type="number"
                     min={0}
                     max={10}
-                    value={level}
-                    onChange={(e) => setLevel(Number(e.target.value) || 1)}
+                    value={form.level}
+                    onChange={(e) => updateForm('level', Number(e.target.value) || 1)}
                     disabled={isReadOnly}
                     className="mt-1.5"
                   />
@@ -623,8 +631,8 @@ export function AddWordDialog({
                   </Label>
                   <textarea
                     id="description"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    value={form.description}
+                    onChange={(e) => updateForm('description', e.target.value)}
                     placeholder="输入单词的解释、历史、故事等"
                     className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1.5 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={isReadOnly}
@@ -633,7 +641,7 @@ export function AddWordDialog({
               </div>
 
               <DialogFooter className="px-6 py-3 border-t shrink-0">
-                <Button variant="outline" onClick={handleClose}>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
                   取消
                 </Button>
                 <Button onClick={handleSubmit} disabled={isSubmitting}>

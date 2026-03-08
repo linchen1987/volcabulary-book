@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { AddWordDialog } from '~/components/add-word-dialog';
+import { LevelSelector } from '~/components/level-selector';
 import { PageHeader } from '~/components/page-header';
 import { SyncStatus } from '~/components/sync-status';
 import {
@@ -82,6 +83,7 @@ export default function WordListPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [wordToDelete, setWordToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showLevel, setShowLevel] = useState(false);
 
   const [space, setSpace] = useState<Awaited<ReturnType<typeof SpaceService.getSpace>>>();
   const [stats, setStats] = useState<Awaited<ReturnType<typeof WordService.getStats>>>();
@@ -308,6 +310,19 @@ export default function WordListPage() {
     }, 0);
   };
 
+  const handleLevelChange = async (wordId: string, level: number) => {
+    try {
+      await WordService.updateWordLevel(wordId, level);
+      setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, level } : w)));
+      if (shouldAutoSync) {
+        syncPush(spaceId);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error('更新难度失败');
+    }
+  };
+
   if (!space) return null;
 
   return (
@@ -383,6 +398,17 @@ export default function WordListPage() {
               </option>
             ))}
           </select>
+
+          <div className="h-5 w-px bg-border" />
+
+          <Button
+            variant={showLevel ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowLevel(!showLevel)}
+            className="h-9"
+          >
+            记忆难度
+          </Button>
         </div>
 
         <div className="h-px bg-border mb-6" />
@@ -396,16 +422,26 @@ export default function WordListPage() {
 
             return (
               <Card key={word.id} className="p-4 hover:shadow-md transition-all">
-                <div className="flex justify-between items-center gap-3">
-                  <div className="min-w-0 flex-1 flex items-baseline gap-2">
-                    <h3 className="text-lg font-semibold truncate">{word.content}</h3>
-                    {word.phonetic && (
-                      <span className="text-sm text-muted-foreground shrink-0">
-                        {word.phonetic}
-                      </span>
-                    )}
+                <div className="flex justify-between items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-lg font-semibold truncate">{word.content}</h3>
+                      {word.phonetic && (
+                        <span className="text-sm text-muted-foreground shrink-0">
+                          {word.phonetic}
+                        </span>
+                      )}
+                    </div>
                     {shouldShowTranslation && translation && (
-                      <span className="text-sm text-muted-foreground truncate">{translation}</span>
+                      <p className="text-sm text-muted-foreground truncate mt-1">{translation}</p>
+                    )}
+                    {showLevel && (
+                      <div className="mt-3">
+                        <LevelSelector
+                          value={word.level}
+                          onChange={(level) => handleLevelChange(word.id, level)}
+                        />
+                      </div>
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">

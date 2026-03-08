@@ -231,6 +231,12 @@ export const WordService = {
     });
   },
 
+  async updateWordLevel(id: string, level: number): Promise<void> {
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      await db.words.update(id, { level });
+    });
+  },
+
   async deleteWord(id: string): Promise<void> {
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
       const word = await db.words.get(id);

@@ -404,12 +404,14 @@ export function AddWordDialog({
                     <Label className="text-muted-foreground text-xs">相关词</Label>
                     <div className="flex flex-wrap gap-1.5 mt-1.5">
                       {related.words.map((rw) => (
-                        <span
+                        <button
                           key={rw.id}
-                          className="px-2.5 py-1 text-sm bg-primary/10 rounded-full"
+                          type="button"
+                          onClick={() => onNavigateToWord?.(rw.id, 'view')}
+                          className="px-2.5 py-1 text-sm bg-primary/10 rounded-full hover:bg-primary/20 transition-colors"
                         >
                           {rw.content}
-                        </span>
+                        </button>
                       ))}
                     </div>
                   </div>
@@ -545,7 +547,13 @@ export function AddWordDialog({
                         key={rw.id}
                         className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-primary/10 rounded-full"
                       >
-                        {rw.content}
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToWord?.(rw.id, 'view')}
+                          className="hover:underline"
+                        >
+                          {rw.content}
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleRemoveRelatedWord(rw.id)}
@@ -581,6 +589,20 @@ export function AddWordDialog({
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="description" className="text-muted-foreground text-xs">
+                    解释/笔记
+                  </Label>
+                  <Input
+                    id="description"
+                    value={form.description}
+                    onChange={(e) => updateForm('description', e.target.value)}
+                    placeholder="输入单词的解释、历史、故事等"
+                    disabled={isReadOnly}
+                    className="mt-1.5"
+                  />
                 </div>
 
                 <div>
@@ -630,20 +652,6 @@ export function AddWordDialog({
                     onChange={(e) => updateForm('level', Number(e.target.value) || 1)}
                     disabled={isReadOnly}
                     className="mt-1.5"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="description" className="text-muted-foreground text-xs">
-                    解释/笔记
-                  </Label>
-                  <textarea
-                    id="description"
-                    value={form.description}
-                    onChange={(e) => updateForm('description', e.target.value)}
-                    placeholder="输入单词的解释、历史、故事等"
-                    className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm mt-1.5 ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isReadOnly}
                   />
                 </div>
 

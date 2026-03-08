@@ -2,12 +2,12 @@
 
 import {
   BookOpen,
-  CloudDownload,
   Edit2,
   Eye,
   Loader2,
   MoreVertical,
   Plus,
+  RefreshCw,
   Search as SearchIcon,
   Trash2,
   X,
@@ -91,7 +91,7 @@ export default function WordListPage() {
   const [hasMore, setHasMore] = useState(true);
   const loadMoreRef = useRef<HTMLDivElement>(null);
 
-  const { isSyncing, syncPull, ensurePulled, syncPush } = useSyncStore();
+  const { isSyncing, ensurePulled, syncPush } = useSyncStore();
   const shouldAutoSync = useSpaceAutoSync(spaceId);
 
   useEffect(() => {
@@ -240,10 +240,12 @@ export default function WordListPage() {
     });
   };
 
-  const handlePull = async () => {
-    await syncPull(spaceId);
-    loadWords(0, false);
-    WordService.getStats(spaceId).then(setStats);
+  const handleSync = async () => {
+    await syncPush(spaceId, { showToast: true }, async () => {
+      loadWords(0, false);
+      const newStats = await WordService.getStats(spaceId);
+      setStats(newStats);
+    });
   };
 
   const handleDeleteWord = async () => {
@@ -314,14 +316,14 @@ export default function WordListPage() {
         <div className="flex items-center gap-3 w-full max-w-[500px] justify-end">
           <SyncStatus spaceId={spaceId} isSyncing={isSyncing} />
           <Button
-            onClick={handlePull}
+            onClick={handleSync}
             disabled={isSyncing}
             variant="ghost"
             size="icon"
             className="h-8 w-8 shrink-0"
-            title="从远程拉取数据"
+            title="同步数据"
           >
-            <CloudDownload className={`w-4 h-4 ${isSyncing ? 'animate-pulse' : ''}`} />
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
           </Button>
           <form
             onSubmit={(e) => e.preventDefault()}

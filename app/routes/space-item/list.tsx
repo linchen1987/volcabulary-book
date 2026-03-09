@@ -1,5 +1,6 @@
 'use client';
 
+import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BookOpen,
   Edit2,
@@ -40,6 +41,7 @@ import {
 } from '~/components/ui/dropdown-menu';
 import { Input } from '~/components/ui/input';
 import { useSpaceAutoSync } from '~/hooks/use-space-auto-sync';
+import { db } from '~/lib/db';
 import type { SortField, SortOrder } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
@@ -98,6 +100,11 @@ export default function WordListPage() {
 
   const { isSyncing, ensurePulled, syncPush } = useSyncStore();
   const shouldAutoSync = useSpaceAutoSync(spaceId);
+
+  const pendingSyncCount = useLiveQuery(
+    () => db.syncEvents.where('spaceId').equals(spaceId).count(),
+    [spaceId],
+  );
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -355,16 +362,21 @@ export default function WordListPage() {
       <PageHeader title={space.name}>
         <div className="flex items-center gap-3 w-full max-w-[500px] justify-end">
           <SyncStatus spaceId={spaceId} isSyncing={isSyncing} />
-          <Button
-            onClick={handleSync}
-            disabled={isSyncing}
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            title="同步数据"
-          >
-            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="relative">
+            <Button
+              onClick={handleSync}
+              disabled={isSyncing}
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              title="同步数据"
+            >
+              <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            </Button>
+            {(pendingSyncCount ?? 0) > 0 && (
+              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
+            )}
+          </div>
           <form
             onSubmit={(e) => e.preventDefault()}
             className="relative group flex-1 max-w-[320px]"

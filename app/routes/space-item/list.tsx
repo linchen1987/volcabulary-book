@@ -312,8 +312,11 @@ export default function WordListPage() {
 
   const handleLevelChange = async (wordId: string, level: number) => {
     try {
+      const newUpdatedAt = Date.now();
       await WordService.updateWordLevel(wordId, level);
-      setWords((prev) => prev.map((w) => (w.id === wordId ? { ...w, level } : w)));
+      setWords((prev) =>
+        prev.map((w) => (w.id === wordId ? { ...w, level, updatedAt: newUpdatedAt } : w)),
+      );
       if (shouldAutoSync) {
         syncPush(spaceId);
       }

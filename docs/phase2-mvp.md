@@ -18,7 +18,7 @@ interface Word {
   description?: string;      // optional - 解释、历史、故事
   translations?: string[];   // optional - 翻译数组（多义词）
   usages?: Usage[];          // optional - 例句
-  level: number;             // default 1 - 记忆难度级别
+  level: number;             // default 1 - 难度级别
   phonetic?: string;         // optional - 音标
   audioUrl?: string;         // optional - 语音URL
   createdAt: number;

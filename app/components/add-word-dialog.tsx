@@ -447,7 +447,7 @@ export function AddWordDialog({
                 )}
 
                 <div>
-                  <Label className="text-muted-foreground text-xs">记忆难度</Label>
+                  <Label className="text-muted-foreground text-xs">难度</Label>
                   <LevelSelector value={word?.level ?? 1} className="mt-3" />
                 </div>
 
@@ -637,7 +637,7 @@ export function AddWordDialog({
                 </div>
 
                 <div>
-                  <Label className="text-muted-foreground text-xs">记忆难度</Label>
+                  <Label className="text-muted-foreground text-xs">难度</Label>
                   <LevelSelector
                     value={form.level}
                     onChange={(level) => updateForm('level', level)}

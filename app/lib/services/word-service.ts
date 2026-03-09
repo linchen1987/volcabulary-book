@@ -233,7 +233,10 @@ export const WordService = {
 
   async updateWordLevel(id: string, level: number): Promise<void> {
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
-      await db.words.update(id, { level });
+      await db.words.update(id, {
+        level,
+        updatedAt: Date.now(),
+      });
     });
   },
 

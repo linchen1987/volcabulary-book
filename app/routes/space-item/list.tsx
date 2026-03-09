@@ -18,6 +18,7 @@ import { toast } from 'sonner';
 import { AddWordDialog } from '~/components/add-word-dialog';
 import { LevelSelector } from '~/components/level-selector';
 import { PageHeader } from '~/components/page-header';
+import { RelatedWordsSelector } from '~/components/related-words-selector';
 import { SyncStatus } from '~/components/sync-status';
 import {
   AlertDialog,
@@ -84,6 +85,8 @@ export default function WordListPage() {
   const [wordToDelete, setWordToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showLevel, setShowLevel] = useState(false);
+  const [showRelatedWords, setShowRelatedWords] = useState(false);
+  const [relatedWordsMap, setRelatedWordsMap] = useState<Map<string, Word[]>>(new Map());
 
   const [space, setSpace] = useState<Awaited<ReturnType<typeof SpaceService.getSpace>>>();
   const [stats, setStats] = useState<Awaited<ReturnType<typeof WordService.getStats>>>();
@@ -194,6 +197,25 @@ export default function WordListPage() {
 
     return () => observer.disconnect();
   }, [hasMore, isLoadingMore, isLoading, words.length, loadWords]);
+
+  useEffect(() => {
+    if (!showRelatedWords || words.length === 0) return;
+
+    const loadRelatedWords = async () => {
+      const newMap = new Map<string, Word[]>();
+      await Promise.all(
+        words.map(async (word) => {
+          if (word.relatedWordIds && word.relatedWordIds.length > 0) {
+            const related = await WordService.getRelatedWords(word.id);
+            newMap.set(word.id, related);
+          }
+        }),
+      );
+      setRelatedWordsMap(newMap);
+    };
+
+    loadRelatedWords();
+  }, [showRelatedWords, words]);
 
   const clearSearch = () => {
     setInputQuery('');
@@ -410,7 +432,16 @@ export default function WordListPage() {
             onClick={() => setShowLevel(!showLevel)}
             className="h-9"
           >
-            记忆难度
+            难度
+          </Button>
+
+          <Button
+            variant={showRelatedWords ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowRelatedWords(!showRelatedWords)}
+            className="h-9"
+          >
+            相关词
           </Button>
         </div>
 
@@ -443,6 +474,14 @@ export default function WordListPage() {
                         <LevelSelector
                           value={word.level}
                           onChange={(level) => handleLevelChange(word.id, level)}
+                        />
+                      </div>
+                    )}
+                    {showRelatedWords && relatedWordsMap.has(word.id) && (
+                      <div className="mt-3">
+                        <RelatedWordsSelector
+                          words={relatedWordsMap.get(word.id) || []}
+                          onWordClick={(wordId) => openViewDialog(wordId)}
                         />
                       </div>
                     )}

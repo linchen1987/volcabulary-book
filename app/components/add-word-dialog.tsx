@@ -400,6 +400,18 @@ export function AddWordDialog({
                   <div className="text-lg font-semibold mt-1">{word?.content}</div>
                 </div>
 
+                {word?.translation && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">翻译</Label>
+                    <p className="text-sm leading-relaxed mt-1">{word.translation}</p>
+                  </div>
+                )}
+
+                <div>
+                  <Label className="text-muted-foreground text-xs">难度</Label>
+                  <LevelSelector value={word?.level ?? 1} className="mt-3" />
+                </div>
+
                 {related.words.length > 0 && (
                   <div>
                     <Label className="text-muted-foreground text-xs">相关词</Label>
@@ -415,13 +427,6 @@ export function AddWordDialog({
                         </button>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {word?.translation && (
-                  <div>
-                    <Label className="text-muted-foreground text-xs">翻译</Label>
-                    <p className="text-sm leading-relaxed mt-1">{word.translation}</p>
                   </div>
                 )}
 
@@ -445,11 +450,6 @@ export function AddWordDialog({
                     </div>
                   </div>
                 )}
-
-                <div>
-                  <Label className="text-muted-foreground text-xs">难度</Label>
-                  <LevelSelector value={word?.level ?? 1} className="mt-3" />
-                </div>
 
                 {word?.description && (
                   <div>
@@ -533,6 +533,16 @@ export function AddWordDialog({
                     placeholder="输入翻译"
                     className="font-medium mt-1.5"
                     disabled={isReadOnly}
+                  />
+                </div>
+
+                <div>
+                  <Label className="text-muted-foreground text-xs">难度</Label>
+                  <LevelSelector
+                    value={form.level}
+                    onChange={(level) => updateForm('level', level)}
+                    disabled={isReadOnly}
+                    className="mt-3"
                   />
                 </div>
 
@@ -634,16 +644,6 @@ export function AddWordDialog({
                       </div>
                     ))}
                   </div>
-                </div>
-
-                <div>
-                  <Label className="text-muted-foreground text-xs">难度</Label>
-                  <LevelSelector
-                    value={form.level}
-                    onChange={(level) => updateForm('level', level)}
-                    disabled={isReadOnly}
-                    className="mt-3"
-                  />
                 </div>
 
                 {currentMode === 'edit' && renderActionButtons(false)}

@@ -1,8 +1,8 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { Save, Trash2 } from 'lucide-react';
-import { useState } from 'react';
+import { Download, Save, Trash2, Upload } from 'lucide-react';
+import { useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { PageHeader } from '~/components/page-header';
@@ -25,7 +25,10 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { getSpaceAutoSync, setSpaceAutoSync } from '~/hooks/use-space-auto-sync';
 import { DataToolsService } from '~/lib/services/data-tools-service';
+import { ExportService } from '~/lib/services/export-service';
 import { FsService } from '~/lib/services/fs-service';
+import { ImportService } from '~/lib/services/import-service';
+import type { BackupData } from '~/lib/services/sync/types';
 import { SpaceService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
 import { parseSpaceId } from '~/lib/utils/token';
@@ -45,6 +48,7 @@ export default function SpaceSettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [isClearingSyncEvents, setIsClearingSyncEvents] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { isSyncing, syncPush, syncPull } = useSyncStore();
 
@@ -113,6 +117,41 @@ export default function SpaceSettingsPage() {
     } finally {
       setIsClearingSyncEvents(false);
     }
+  };
+
+  const handleImportClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text) as BackupData;
+
+      toast.promise(ImportService.importData(data, spaceId), {
+        loading: '正在导入数据...',
+        success: (stats) => {
+          const message = `导入完成：成功 ${stats.success} 条，跳过 ${stats.skipped} 条。`;
+          if (stats.errors.length > 0) {
+            return `${message} (包含一些警告)`;
+          }
+          return message;
+        },
+        error: '导入失败',
+      });
+
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    } catch (error) {
+      console.error('Import failed:', error);
+      toast.error('导入失败，请确保文件是有效的 JSON 格式。');
+    }
+  };
+
+  const handleExport = () => {
+    ExportService.exportData(spaceId);
   };
 
   const handleSync = async () => {
@@ -212,6 +251,30 @@ export default function SpaceSettingsPage() {
               <CardDescription>维护和管理此空间的数据</CardDescription>
             </CardHeader>
             <CardContent className="space-y-8">
+              <div className="space-y-4">
+                <h3 className="font-medium">导入导出</h3>
+                <p className="text-sm text-muted-foreground">
+                  导入或导出此空间的单词数据为 JSON 文件
+                </p>
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  accept=".json"
+                  onChange={handleFileChange}
+                />
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={handleImportClick} className="gap-2">
+                    <Upload className="w-4 h-4" /> 导入数据
+                  </Button>
+                  <Button variant="outline" onClick={handleExport} className="gap-2">
+                    <Download className="w-4 h-4" /> 导出备份
+                  </Button>
+                </div>
+              </div>
+
+              <div className="h-px bg-border" />
+
               <div className="space-y-4">
                 <h3 className="font-medium">清除同步事件</h3>
                 <p className="text-sm text-muted-foreground">删除此空间的所有同步事件记录</p>

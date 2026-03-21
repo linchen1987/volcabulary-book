@@ -3,6 +3,7 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   BookOpen,
+  Copy,
   Edit2,
   Eye,
   Loader2,
@@ -40,6 +41,7 @@ import {
   DropdownMenuTrigger,
 } from '~/components/ui/dropdown-menu';
 import { Input } from '~/components/ui/input';
+import { useListViewConfig } from '~/hooks/use-list-view-config';
 import { useSpaceAutoSync } from '~/hooks/use-space-auto-sync';
 import { db } from '~/lib/db';
 import type { SortField, SortOrder } from '~/lib/services/word-service';
@@ -68,6 +70,12 @@ type DialogMode = 'add' | 'edit' | 'view' | null;
 
 const PAGE_SIZE = 20;
 
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).then(() => {
+    toast.success('已复制');
+  });
+}
+
 export default function WordListPage() {
   const { spaceToken } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -75,7 +83,19 @@ export default function WordListPage() {
 
   const q = searchParams.get('q') || '';
   const levelFilter = searchParams.get('level') ? Number(searchParams.get('level')) : undefined;
-  const sortValue = searchParams.get('sort') || 'updatedAt-desc';
+  const urlSort = searchParams.get('sort');
+  const {
+    sort: savedSort,
+    setSort: setSavedSort,
+    showTranslation,
+    setShowTranslation,
+    showLevel,
+    setShowLevel,
+    showRelatedWords,
+    setShowRelatedWords,
+  } = useListViewConfig();
+
+  const sortValue = urlSort || savedSort;
   const [sortBy, sortOrder] = sortValue.split('-') as [SortField, SortOrder];
 
   const [inputQuery, setInputQuery] = useState(q);
@@ -86,8 +106,6 @@ export default function WordListPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [wordToDelete, setWordToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showLevel, setShowLevel] = useState(false);
-  const [showRelatedWords, setShowRelatedWords] = useState(false);
   const [relatedWordsMap, setRelatedWordsMap] = useState<Map<string, Word[]>>(new Map());
 
   const [space, setSpace] = useState<Awaited<ReturnType<typeof SpaceService.getSpace>>>();
@@ -242,6 +260,7 @@ export default function WordListPage() {
   };
 
   const setSortValue = (value: string) => {
+    setSavedSort(value);
     const params = new URLSearchParams(searchParams);
     params.set('sort', value);
     setSearchParams(params);
@@ -379,7 +398,7 @@ export default function WordListPage() {
           </div>
           <form
             onSubmit={(e) => e.preventDefault()}
-            className="relative group flex-1 max-w-[320px]"
+            className="relative group flex-1 min-w-0 sm:max-w-[320px]"
           >
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
@@ -402,59 +421,66 @@ export default function WordListPage() {
       </PageHeader>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8">
-        <div className="flex items-center gap-3 mb-6">
-          <select
-            value={levelFilter === undefined ? '' : levelFilter}
-            onChange={(e) =>
-              setLevelFilter(e.target.value === '' ? undefined : Number(e.target.value))
-            }
-            className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
-          >
-            <option value="">全部 {stats && `(${stats.total})`}</option>
-            {stats &&
-              Object.keys(stats.byLevel)
-                .map(Number)
-                .sort((a, b) => a - b)
-                .map((level) => (
-                  <option key={level} value={level}>
-                    Lv.{level} ({stats.byLevel[level]})
-                  </option>
-                ))}
-          </select>
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mb-6">
+          <div className="flex items-center gap-2 order-1">
+            <select
+              value={levelFilter === undefined ? '' : levelFilter}
+              onChange={(e) =>
+                setLevelFilter(e.target.value === '' ? undefined : Number(e.target.value))
+              }
+              className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+            >
+              <option value="">全部 {stats && `(${stats.total})`}</option>
+              {stats &&
+                Object.keys(stats.byLevel)
+                  .map(Number)
+                  .sort((a, b) => a - b)
+                  .map((level) => (
+                    <option key={level} value={level}>
+                      Lv.{level} ({stats.byLevel[level]})
+                    </option>
+                  ))}
+            </select>
 
-          <div className="h-5 w-px bg-border" />
+            <select
+              value={sortValue}
+              onChange={(e) => setSortValue(e.target.value)}
+              className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={sortValue}
-            onChange={(e) => setSortValue(e.target.value)}
-            className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-
-          <div className="h-5 w-px bg-border" />
-
-          <Button
-            variant={showLevel ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowLevel(!showLevel)}
-            className="h-9"
-          >
-            难度
-          </Button>
-
-          <Button
-            variant={showRelatedWords ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowRelatedWords(!showRelatedWords)}
-            className="h-9"
-          >
-            相关词
-          </Button>
+          <div className="flex items-center gap-1 order-2 sm:ml-auto">
+            <Button
+              variant={showTranslation ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowTranslation(!showTranslation)}
+              className="h-8 px-3 text-sm"
+            >
+              翻译
+            </Button>
+            <Button
+              variant={showLevel ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowLevel(!showLevel)}
+              className="h-8 px-3 text-sm"
+            >
+              难度
+            </Button>
+            <Button
+              variant={showRelatedWords ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowRelatedWords(!showRelatedWords)}
+              className="h-8 px-3 text-sm"
+            >
+              相关词
+            </Button>
+          </div>
         </div>
 
         <div className="h-px bg-border mb-6" />
@@ -463,15 +489,32 @@ export default function WordListPage() {
           {words?.map((word) => {
             const isTranslationVisible = visibleTranslations.has(word.id);
             const isHovered = hoveredTranslations.has(word.id);
-            const shouldShowTranslation = isTranslationVisible || isHovered;
+            const shouldShowTranslation = showTranslation || isTranslationVisible || isHovered;
             const translation = getTranslationPreview(word);
 
             return (
               <Card key={word.id} className="p-4 hover:shadow-md transition-all">
                 <div className="flex justify-between items-start gap-3">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-baseline gap-2">
-                      <h3 className="text-lg font-semibold truncate">{word.content}</h3>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => openViewDialog(word.id)}
+                        className="text-lg font-semibold truncate hover:text-primary transition-colors cursor-pointer text-left"
+                      >
+                        {word.content}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyToClipboard(word.content);
+                        }}
+                        className="shrink-0 text-muted-foreground/40 hover:text-muted-foreground transition-colors p-0.5 rounded"
+                        title="复制单词"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                      </button>
                       {word.phonetic && (
                         <span className="text-sm text-muted-foreground shrink-0">
                           {word.phonetic}
@@ -499,7 +542,7 @@ export default function WordListPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {translation && (
+                    {translation && !showTranslation && (
                       <Button
                         variant="ghost"
                         size="icon"

@@ -21,8 +21,8 @@ export function PageHeader({ title, leftActions, children, className }: PageHead
         className,
       )}
     >
-      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-3 flex justify-between items-center min-h-[60px]">
-        <div className="flex items-center gap-1 overflow-hidden">
+      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-3 flex items-center gap-2 sm:justify-between sm:min-h-[60px]">
+        <div className="flex items-center gap-1 overflow-hidden shrink min-w-0">
           <Button
             variant="ghost"
             size="icon"
@@ -42,10 +42,12 @@ export function PageHeader({ title, leftActions, children, className }: PageHead
             </Button>
           )}
           {leftActions}
-          {title && <h2 className="text-lg font-bold truncate pr-4">{title}</h2>}
+          {title && <h2 className="text-lg font-bold truncate pr-2">{title}</h2>}
         </div>
 
-        <div className="flex items-center gap-1 justify-end">{children}</div>
+        <div className="flex items-center gap-2 sm:gap-3 justify-end flex-1 sm:flex-none min-w-0 sm:w-full sm:max-w-[500px]">
+          {children}
+        </div>
       </div>
     </header>
   );

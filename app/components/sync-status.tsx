@@ -54,7 +54,7 @@ export function SyncStatus({ spaceId, isSyncing }: SyncStatusProps) {
     return (
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-        <span>上次同步: {formatTimeAgo(lastSyncTime)}</span>
+        <span>{formatTimeAgo(lastSyncTime)}</span>
       </div>
     );
   }

@@ -1,5 +1,6 @@
 import { db, generateId } from '~/lib/db';
 import type { Space, Word } from '~/lib/types';
+import { addRelation, cleanupRelationsOnDelete, removeRelation } from './related-words';
 
 export interface WordStats {
   total: number;
@@ -243,17 +244,10 @@ export const WordService = {
   async deleteWord(id: string): Promise<void> {
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
       const word = await db.words.get(id);
-      if (word?.relatedWordIds) {
-        for (const relatedId of word.relatedWordIds) {
-          const relatedWord = await db.words.get(relatedId);
-          if (relatedWord?.relatedWordIds) {
-            const updatedIds = relatedWord.relatedWordIds.filter((rid) => rid !== id);
-            await db.words.update(relatedId, {
-              relatedWordIds: updatedIds.length > 0 ? updatedIds : undefined,
-              updatedAt: Date.now(),
-            });
-          }
-        }
+      if (word?.relatedWordIds?.length) {
+        const relatedWords = await db.words.where('id').anyOf(word.relatedWordIds).toArray();
+        const cleanups = cleanupRelationsOnDelete(word, relatedWords);
+        await Promise.all(cleanups.map((c) => db.words.update(c.id, c.update)));
       }
       await db.words.delete(id);
     });
@@ -263,46 +257,82 @@ export const WordService = {
     if (wordId === relatedWordId) return;
 
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
-      const word = await db.words.get(wordId);
-      const relatedWord = await db.words.get(relatedWordId);
+      const [word, relatedWord] = await Promise.all([
+        db.words.get(wordId),
+        db.words.get(relatedWordId),
+      ]);
 
       if (!word || !relatedWord) return;
 
-      const wordRelatedIds = new Set(word.relatedWordIds || []);
-      wordRelatedIds.add(relatedWordId);
+      const result = addRelation(word, relatedWord);
+      if (!result) return;
 
-      const relatedWordRelatedIds = new Set(relatedWord.relatedWordIds || []);
-      relatedWordRelatedIds.add(wordId);
-
-      await db.words.update(wordId, {
-        relatedWordIds: Array.from(wordRelatedIds),
-        updatedAt: Date.now(),
-      });
-
-      await db.words.update(relatedWordId, {
-        relatedWordIds: Array.from(relatedWordRelatedIds),
-      });
+      await Promise.all([
+        db.words.update(wordId, result.wordUpdate),
+        db.words.update(relatedWordId, result.relatedUpdate),
+      ]);
     });
   },
 
   async removeRelatedWord(wordId: string, relatedWordId: string): Promise<void> {
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
-      const word = await db.words.get(wordId);
-      const relatedWord = await db.words.get(relatedWordId);
+      const [word, relatedWord] = await Promise.all([
+        db.words.get(wordId),
+        db.words.get(relatedWordId),
+      ]);
 
-      if (word?.relatedWordIds) {
-        const updatedIds = word.relatedWordIds.filter((id) => id !== relatedWordId);
-        await db.words.update(wordId, {
-          relatedWordIds: updatedIds.length > 0 ? updatedIds : undefined,
-          updatedAt: Date.now(),
-        });
+      if (!word || !relatedWord) return;
+
+      const result = removeRelation(word, relatedWord);
+      if (!result) return;
+
+      await Promise.all([
+        db.words.update(wordId, result.wordUpdate),
+        db.words.update(relatedWordId, result.relatedUpdate),
+      ]);
+    });
+  },
+
+  async batchUpdateRelations(
+    wordId: string,
+    currentRelatedIds: string[],
+    originalRelatedIds: string[],
+  ): Promise<void> {
+    const toAdd = currentRelatedIds.filter((id) => !originalRelatedIds.includes(id));
+    const toRemove = originalRelatedIds.filter((id) => !currentRelatedIds.includes(id));
+
+    if (toAdd.length === 0 && toRemove.length === 0) return;
+
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      const word = await db.words.get(wordId);
+      if (!word) return;
+
+      const allIds = [...toAdd, ...toRemove];
+      const relatedWords = await db.words.where('id').anyOf(allIds).toArray();
+      const relatedMap = new Map(relatedWords.map((w) => [w.id, w]));
+
+      for (const relId of toRemove) {
+        const relWord = relatedMap.get(relId);
+        if (!relWord) continue;
+        const result = removeRelation(word, relWord);
+        if (!result) continue;
+        await db.words.update(wordId, result.wordUpdate);
+        await db.words.update(relId, result.relatedUpdate);
+        relatedMap.set(relId, { ...relWord, ...result.relatedUpdate } as Word);
       }
 
-      if (relatedWord?.relatedWordIds) {
-        const updatedIds = relatedWord.relatedWordIds.filter((id) => id !== wordId);
-        await db.words.update(relatedWordId, {
-          relatedWordIds: updatedIds.length > 0 ? updatedIds : undefined,
-        });
+      const updatedWord = await db.words.get(wordId);
+      if (!updatedWord) return;
+
+      for (const relId of toAdd) {
+        const relWord = relatedMap.get(relId);
+        if (!relWord) continue;
+        const result = addRelation(updatedWord, relWord);
+        if (!result) continue;
+        await db.words.update(wordId, result.wordUpdate);
+        await db.words.update(relId, result.relatedUpdate);
+        relatedMap.set(relId, { ...relWord, ...result.relatedUpdate } as Word);
+        Object.assign(updatedWord, result.wordUpdate);
       }
     });
   },

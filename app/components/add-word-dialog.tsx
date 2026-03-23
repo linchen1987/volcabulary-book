@@ -254,9 +254,6 @@ export function AddWordDialog({
         }));
 
       if (currentMode === 'edit' && wordId) {
-        const toAdd = related.ids.filter((id) => !related.originalIds.includes(id));
-        const toRemove = related.originalIds.filter((id) => !related.ids.includes(id));
-
         await WordService.updateWord(wordId, {
           content: form.content.trim(),
           phonetic: form.phonetic.trim() || undefined,
@@ -266,8 +263,7 @@ export function AddWordDialog({
           level: form.level,
         });
 
-        await Promise.all(toAdd.map((id) => WordService.addRelatedWord(wordId, id)));
-        await Promise.all(toRemove.map((id) => WordService.removeRelatedWord(wordId, id)));
+        await WordService.batchUpdateRelations(wordId, related.ids, related.originalIds);
 
         toast.success('保存成功');
       } else {

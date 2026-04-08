@@ -55,7 +55,7 @@ export const SpaceService = {
 function splitContent(content: string): string[] {
   return content
     .split('/')
-    .map((s) => s.trim().toLowerCase())
+    .map((s) => s.trim())
     .filter(Boolean);
 }
 

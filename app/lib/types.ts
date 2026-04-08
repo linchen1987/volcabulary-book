@@ -11,6 +11,7 @@ export interface Word {
   content: string;
   description?: string;
   translation?: string;
+  /** @deprecated Use description field instead for 例句/解释/笔记 */
   usages?: Array<{
     sentence: string;
     translation?: string;

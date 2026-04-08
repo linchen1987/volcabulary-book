@@ -26,6 +26,7 @@ import {
 } from '~/components/ui/dialog';
 import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
+import { Textarea } from '~/components/ui/textarea';
 import { useSpaceAutoSync } from '~/hooks/use-space-auto-sync';
 import { WordService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
@@ -426,30 +427,9 @@ export function AddWordDialog({
                   </div>
                 )}
 
-                {word?.usages && word.usages.length > 0 && (
-                  <div>
-                    <Label className="text-muted-foreground text-xs">例句</Label>
-                    <div className="space-y-2 mt-1.5">
-                      {word.usages.map(
-                        (usage) =>
-                          usage.sentence && (
-                            <div key={usage.sentence} className="pl-3 border-l-2 border-muted">
-                              <p className="text-sm leading-relaxed">{usage.sentence}</p>
-                              {usage.translation && (
-                                <p className="text-sm text-muted-foreground leading-relaxed mt-0.5">
-                                  {usage.translation}
-                                </p>
-                              )}
-                            </div>
-                          ),
-                      )}
-                    </div>
-                  </div>
-                )}
-
                 {word?.description && (
                   <div>
-                    <Label className="text-muted-foreground text-xs">解释/笔记</Label>
+                    <Label className="text-muted-foreground text-xs">例句/解释/笔记</Label>
                     <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1">
                       {word.description}
                     </p>
@@ -596,50 +576,17 @@ export function AddWordDialog({
 
                 <div>
                   <Label htmlFor="description" className="text-muted-foreground text-xs">
-                    解释/笔记
+                    例句/解释/笔记
                   </Label>
-                  <Input
+                  <Textarea
                     id="description"
                     value={form.description}
                     onChange={(e) => updateForm('description', e.target.value)}
-                    placeholder="输入单词的解释、历史、故事等"
+                    placeholder="输入例句、解释、笔记等"
                     disabled={isReadOnly}
                     className="mt-1.5"
+                    rows={5}
                   />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <Label className="text-muted-foreground text-xs">例句</Label>
-                    {!isReadOnly && (
-                      <Button variant="ghost" size="sm" onClick={addUsage} className="h-6 text-xs">
-                        <Plus className="w-3 h-3 mr-1" /> 添加
-                      </Button>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {form.usages.map((usage) => (
-                      <div key={usage.id} className="flex items-center gap-2">
-                        <Input
-                          value={usage.sentence}
-                          onChange={(e) => handleUsageChange(usage.id, 'sentence', e.target.value)}
-                          placeholder="例句（可选）"
-                          disabled={isReadOnly}
-                          className="flex-1"
-                        />
-                        {form.usages.length > 1 && !isReadOnly && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => removeUsage(usage.id)}
-                            className="text-muted-foreground hover:text-destructive shrink-0 h-9 w-9"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
                 </div>
 
                 {currentMode === 'edit' && renderActionButtons(false)}

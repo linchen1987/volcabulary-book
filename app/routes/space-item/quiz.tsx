@@ -15,9 +15,10 @@ import {
   ThumbsUp,
   X,
 } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
+import { LevelSelector } from '~/components/level-selector';
 import { PageHeader } from '~/components/page-header';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
@@ -109,26 +110,24 @@ export default function QuizPage() {
     setShowAnswer(true);
   };
 
+  const handleLevelChange = useCallback(async (wordId: string, newLevel: number) => {
+    try {
+      await WordService.updateWordLevel(wordId, newLevel);
+      setQuizWords((prev) =>
+        prev.map((qw) =>
+          qw.word.id === wordId ? { ...qw, word: { ...qw.word, level: newLevel } } : qw,
+        ),
+      );
+    } catch (error) {
+      console.error('Failed to update word level:', error);
+    }
+  }, []);
+
   const markWord = async (passed: boolean) => {
     if (!currentQuizWord) return;
 
     const updatedWords = [...quizWords];
     updatedWords[currentIndex] = { ...currentQuizWord, passed };
-
-    const word = currentQuizWord.word;
-    let newLevel = word.level;
-
-    if (passed) {
-      newLevel = Math.max(0, word.level - 1);
-    } else {
-      newLevel = word.level + 1;
-    }
-
-    try {
-      await WordService.updateWord(word.id, { level: newLevel });
-    } catch (error) {
-      console.error('Failed to update word level:', error);
-    }
 
     setQuizWords(updatedWords);
 
@@ -196,6 +195,7 @@ export default function QuizPage() {
               showAnswer={showAnswer}
               onReveal={revealAnswer}
               onMark={markWord}
+              onLevelChange={handleLevelChange}
             />
           </div>
         )}
@@ -322,37 +322,30 @@ function QuizCard({
   showAnswer,
   onReveal,
   onMark,
+  onLevelChange,
 }: {
   quizWord: QuizWord;
   showAnswer: boolean;
   onReveal: () => void;
   onMark: (passed: boolean) => void;
+  onLevelChange: (wordId: string, level: number) => void;
 }) {
   const { word } = quizWord;
 
   return (
     <Card className="overflow-hidden">
       <CardContent className="p-6">
-        <div className="text-center mb-6">
+        <div className="text-center mb-4">
           <h2 className="text-3xl font-bold mb-2">{word.content}</h2>
-          {!showAnswer && word.phonetic && <p className="text-muted-foreground">{word.phonetic}</p>}
+          {word.phonetic && <p className="text-muted-foreground">{word.phonetic}</p>}
         </div>
 
-        {!showAnswer ? (
-          <div className="flex justify-center">
-            <Button onClick={onReveal} size="lg" className="gap-2 h-14 px-8">
-              <Eye className="w-5 h-5" />
-              显示答案
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {word.phonetic && (
-              <div className="text-center">
-                <p className="text-muted-foreground">{word.phonetic}</p>
-              </div>
-            )}
+        <div className="flex justify-center mb-6">
+          <LevelSelector value={word.level} onChange={(level) => onLevelChange(word.id, level)} />
+        </div>
 
+        {showAnswer && (
+          <div className="space-y-4 mb-6">
             {(() => {
               if (!hasTranslationOrUsages(word)) return null;
               const display = getTranslationDisplay(word);
@@ -382,32 +375,34 @@ function QuizCard({
                 </div>
               );
             })()}
-
-            <div className="flex items-center justify-center gap-4 pt-4">
-              <Button
-                variant="outline"
-                size="lg"
-                onClick={() => onMark(false)}
-                className="gap-2 h-14 px-8 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:border-red-800 dark:hover:bg-red-900/20"
-              >
-                <ThumbsDown className="w-5 h-5" />
-                不通过
-              </Button>
-              <Button
-                size="lg"
-                onClick={() => onMark(true)}
-                className="gap-2 h-14 px-8 bg-green-600 hover:bg-green-700"
-              >
-                <ThumbsUp className="w-5 h-5" />
-                通过
-              </Button>
-            </div>
-
-            <p className="text-xs text-center text-muted-foreground">
-              通过: Level -1 | 不通过: Level +1
-            </p>
           </div>
         )}
+
+        <div className="flex items-center justify-center gap-4">
+          {!showAnswer && (
+            <Button onClick={onReveal} variant="outline" size="lg" className="gap-2 h-14 px-6">
+              <Eye className="w-5 h-5" />
+              显示答案
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            size="lg"
+            onClick={() => onMark(false)}
+            className="gap-2 h-14 px-8 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:border-red-800 dark:hover:bg-red-900/20"
+          >
+            <ThumbsDown className="w-5 h-5" />
+            不通过
+          </Button>
+          <Button
+            size="lg"
+            onClick={() => onMark(true)}
+            className="gap-2 h-14 px-8 bg-green-600 hover:bg-green-700"
+          >
+            <ThumbsUp className="w-5 h-5" />
+            通过
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

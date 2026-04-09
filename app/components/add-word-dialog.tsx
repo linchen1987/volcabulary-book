@@ -6,6 +6,7 @@ import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { LevelSelector } from '~/components/level-selector';
+import { SpeakButton } from '~/components/speak-button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -394,7 +395,10 @@ export function AddWordDialog({
               <div className="space-y-5 px-6 py-5 overflow-y-auto flex-1">
                 <div>
                   <Label className="text-muted-foreground text-xs">单词/短语</Label>
-                  <div className="text-lg font-semibold mt-1">{word?.content}</div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-lg font-semibold">{word?.content}</span>
+                    <SpeakButton text={word?.content || ''} size="md" />
+                  </div>
                 </div>
 
                 {word?.translation && (

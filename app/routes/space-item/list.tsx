@@ -18,6 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
 import { AddWordDialog } from '~/components/add-word-dialog';
+import { SpeakButton } from '~/components/speak-button';
 import { LevelSelector } from '~/components/level-selector';
 import { PageHeader } from '~/components/page-header';
 import { RelatedWordsSelector } from '~/components/related-words-selector';
@@ -504,6 +505,7 @@ export default function WordListPage() {
                       >
                         {word.content}
                       </button>
+                      <SpeakButton text={word.content} />
                       <button
                         type="button"
                         onClick={(e) => {

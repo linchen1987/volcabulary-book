@@ -7,10 +7,11 @@ import {
   Award,
   Check,
   Eye,
+  EyeOff,
+  GraduationCap,
   Lightbulb,
   RotateCcw,
   Shuffle,
-  Target,
   ThumbsDown,
   ThumbsUp,
   X,
@@ -20,12 +21,14 @@ import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
 import { LevelSelector } from '~/components/level-selector';
 import { PageHeader } from '~/components/page-header';
+import { SpeakButton } from '~/components/speak-button';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
 import { Progress } from '~/components/ui/progress';
 import type { WordStats } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
 import type { Word } from '~/lib/types';
+import { cn } from '~/lib/utils';
 import { parseSpaceId } from '~/lib/utils/token';
 
 type QuizState = 'setup' | 'quiz' | 'result';
@@ -106,8 +109,8 @@ export default function QuizPage() {
     setQuizState('quiz');
   };
 
-  const revealAnswer = () => {
-    setShowAnswer(true);
+  const toggleAnswer = () => {
+    setShowAnswer((prev) => !prev);
   };
 
   const handleLevelChange = useCallback(async (wordId: string, newLevel: number) => {
@@ -139,7 +142,7 @@ export default function QuizPage() {
     }
   };
 
-  const restartQuiz = () => {
+  const stopQuiz = () => {
     setQuizState('setup');
     setQuizWords([]);
     setCurrentIndex(0);
@@ -161,7 +164,7 @@ export default function QuizPage() {
         }
       />
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-8 py-4 sm:py-8">
+      <div className="max-w-2xl mx-auto px-4 sm:px-8 py-6 sm:py-12">
         {quizState === 'setup' && (
           <SetupPanel
             stats={stats}
@@ -175,37 +178,50 @@ export default function QuizPage() {
         )}
 
         {quizState === 'quiz' && currentQuizWord && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <span>
-                进度: {currentIndex + 1} / {quizWords.length}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
+                {currentIndex + 1} / {quizWords.length}
               </span>
-              <div className="flex items-center gap-2">
-                <ThumbsUp className="w-4 h-4 text-green-500" />
-                <span>{quizWords.filter((q) => q.passed === true).length}</span>
-                <ThumbsDown className="w-4 h-4 text-red-500" />
-                <span>{quizWords.filter((q) => q.passed === false).length}</span>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 text-sm font-medium">
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-md">
+                    <ThumbsUp className="w-3.5 h-3.5" />
+                    <span>{quizWords.filter((q) => q.passed === true).length}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded-md">
+                    <ThumbsDown className="w-3.5 h-3.5" />
+                    <span>{quizWords.filter((q) => q.passed === false).length}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 text-muted-foreground hover:bg-red-50 hover:text-red-600 hover:border-red-200 dark:hover:bg-red-900/20 transition-colors"
+                  onClick={stopQuiz}
+                >
+                  <X className="w-3.5 h-3.5" />
+                  <span className="text-xs">结束</span>
+                </Button>
               </div>
             </div>
 
-            <Progress value={((currentIndex + 1) / quizWords.length) * 100} className="h-2" />
+            <Progress value={((currentIndex + 1) / quizWords.length) * 100} className="h-1.5" />
 
-            <QuizCard
-              quizWord={currentQuizWord}
-              showAnswer={showAnswer}
-              onReveal={revealAnswer}
-              onMark={markWord}
-              onLevelChange={handleLevelChange}
-            />
+            <div className="pt-2">
+              <QuizCard
+                quizWord={currentQuizWord}
+                showAnswer={showAnswer}
+                onToggleAnswer={toggleAnswer}
+                onMark={markWord}
+                onLevelChange={handleLevelChange}
+              />
+            </div>
           </div>
         )}
 
         {quizState === 'result' && (
-          <ResultPanel
-            quizWords={quizWords}
-            onRestart={restartQuiz}
-            spaceToken={spaceToken || ''}
-          />
+          <ResultPanel quizWords={quizWords} onRestart={stopQuiz} spaceToken={spaceToken || ''} />
         )}
       </div>
     </>
@@ -236,29 +252,27 @@ function SetupPanel({
     : [];
 
   return (
-    <Card className="p-6">
-      <CardContent className="space-y-6 p-0">
-        <div className="flex items-center gap-3 mb-6">
-          <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-            <Target className="w-6 h-6 text-primary" />
+    <Card className="p-6 sm:p-8 border-none shadow-sm ring-1 ring-border/50 bg-card">
+      <CardContent className="space-y-8 p-0">
+        <div className="flex items-center gap-3 pb-2 border-b border-border/50">
+          <div className="p-2.5 bg-primary/10 rounded-xl">
+            <GraduationCap className="w-6 h-6 text-primary" />
           </div>
-          <div>
-            <h2 className="text-xl font-bold">测验设置</h2>
-            <p className="text-sm text-muted-foreground">选择测验范围和数量</p>
-          </div>
+          <h2 className="text-xl font-semibold tracking-tight">测验设置</h2>
         </div>
 
         <div className="space-y-3">
-          <span className="text-sm font-medium">测验范围</span>
-          <div className="flex flex-wrap gap-2">
+          <span className="text-sm font-medium text-muted-foreground">测验范围</span>
+          <div className="flex flex-wrap gap-2.5">
             <button
               type="button"
               onClick={() => setSelectedLevel('all')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={cn(
+                'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
                 selectedLevel === 'all'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
+                  ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 ring-offset-1 ring-offset-background'
+                  : 'bg-secondary/60 hover:bg-secondary text-secondary-foreground hover:shadow-sm',
+              )}
             >
               全部 ({stats?.total || 0})
             </button>
@@ -267,11 +281,12 @@ function SetupPanel({
                 key={level}
                 type="button"
                 onClick={() => setSelectedLevel(level)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={cn(
+                  'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
                   selectedLevel === level
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover:bg-muted/80'
-                }`}
+                    ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 ring-offset-1 ring-offset-background'
+                    : 'bg-secondary/60 hover:bg-secondary text-secondary-foreground hover:shadow-sm',
+                )}
               >
                 Lv.{level} ({stats?.byLevel[level] || 0})
               </button>
@@ -279,33 +294,38 @@ function SetupPanel({
           </div>
         </div>
 
-        <div className="space-y-3">
-          <label htmlFor="quiz-count" className="text-sm font-medium">
-            测验数量
-          </label>
-          <div className="flex items-center gap-4">
+        <div className="space-y-4 bg-secondary/30 p-4 sm:p-5 rounded-2xl border border-border/50">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-muted-foreground">测验数量</span>
+            <span className="text-2xl font-bold text-primary tabular-nums">{quizCount}</span>
+          </div>
+          <div className="py-2">
             <input
-              id="quiz-count"
               type="range"
               min={1}
               max={Math.max(availableCount, 1)}
               value={quizCount}
               onChange={(e) => setQuizCount(Number(e.target.value))}
-              className="flex-1"
+              className="w-full"
             />
-            <span className="text-lg font-bold w-16 text-right">{quizCount}</span>
           </div>
-          <p className="text-xs text-muted-foreground">可选单词数: {availableCount}</p>
+          <p className="text-sm text-muted-foreground">
+            当前范围内可选 <span className="font-semibold text-foreground">{availableCount}</span>{' '}
+            个单词
+          </p>
         </div>
 
-        <Button
-          onClick={onStart}
-          disabled={availableCount === 0}
-          className="w-full h-12 text-lg gap-2"
-        >
-          <Shuffle className="w-5 h-5" />
-          开始测验
-        </Button>
+        <div className="pt-2">
+          <Button
+            onClick={onStart}
+            disabled={availableCount === 0}
+            size="lg"
+            className="w-full h-14 text-base font-medium gap-2 rounded-xl shadow-sm"
+          >
+            <Shuffle className="w-5 h-5" />
+            开始测验
+          </Button>
+        </div>
 
         {availableCount === 0 && (
           <p className="text-sm text-muted-foreground text-center">
@@ -320,56 +340,96 @@ function SetupPanel({
 function QuizCard({
   quizWord,
   showAnswer,
-  onReveal,
+  onToggleAnswer,
   onMark,
   onLevelChange,
 }: {
   quizWord: QuizWord;
   showAnswer: boolean;
-  onReveal: () => void;
+  onToggleAnswer: () => void;
   onMark: (passed: boolean) => void;
   onLevelChange: (wordId: string, level: number) => void;
 }) {
   const { word } = quizWord;
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-6">
-        <div className="text-center mb-4">
-          <h2 className="text-3xl font-bold mb-2">{word.content}</h2>
-          {word.phonetic && <p className="text-muted-foreground">{word.phonetic}</p>}
+    <Card className="overflow-hidden border-none shadow-sm ring-1 ring-border/50">
+      <CardContent className="p-6 sm:p-10 space-y-8">
+        <div className="text-center space-y-3">
+          <div className="flex items-center justify-center gap-3">
+            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">{word.content}</h2>
+            <SpeakButton text={word.content} size="lg" />
+          </div>
+          {word.phonetic && (
+            <p className="text-lg text-muted-foreground font-medium">{word.phonetic}</p>
+          )}
         </div>
 
-        <div className="flex justify-center mb-6">
-          <LevelSelector value={word.level} onChange={(level) => onLevelChange(word.id, level)} />
+        <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center gap-2 bg-secondary/40 p-1.5 rounded-2xl border border-border/50 shadow-sm">
+            <div className="px-2">
+              <LevelSelector
+                value={word.level}
+                onChange={(level) => onLevelChange(word.id, level)}
+              />
+            </div>
+            <div className="w-px h-6 bg-border/50 mx-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn(
+                'h-9 px-4 gap-2 font-medium rounded-xl transition-all',
+                showAnswer
+                  ? 'bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary'
+                  : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+              )}
+              onClick={onToggleAnswer}
+              title={showAnswer ? '隐藏答案' : '显示答案'}
+            >
+              {showAnswer ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              <span>{showAnswer ? '隐藏' : '答案'}</span>
+            </Button>
+          </div>
         </div>
 
         {showAnswer && (
-          <div className="space-y-4 mb-6">
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
             {(() => {
               if (!hasTranslationOrUsages(word)) return null;
               const display = getTranslationDisplay(word);
               return (
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
+                <div className="bg-secondary/30 rounded-2xl p-6 border border-border/50">
+                  <h3 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2">
                     <Lightbulb className="w-4 h-4" />
                     翻译与例句
                   </h3>
-                  <div className="space-y-3">
-                    {display.translation && <p className="text-sm">{display.translation}</p>}
-                    {display.usages?.map(
-                      (usage) =>
-                        usage.sentence && (
-                          <div
-                            key={usage.sentence}
-                            className="ml-4 space-y-1 border-l-2 border-muted-foreground/20 pl-3"
-                          >
-                            <p className="text-sm">{usage.sentence}</p>
-                            {usage.translation && (
-                              <p className="text-sm text-muted-foreground">{usage.translation}</p>
-                            )}
-                          </div>
-                        ),
+                  <div className="space-y-4">
+                    {display.translation && (
+                      <p className="text-base text-foreground leading-relaxed">
+                        {display.translation}
+                      </p>
+                    )}
+                    {display.usages && display.usages.length > 0 && (
+                      <div className="space-y-4 pt-2">
+                        {display.usages.map(
+                          (usage) =>
+                            usage.sentence && (
+                              <div
+                                key={usage.sentence}
+                                className="pl-4 border-l-2 border-primary/30 space-y-1.5"
+                              >
+                                <p className="text-base text-foreground leading-relaxed">
+                                  {usage.sentence}
+                                </p>
+                                {usage.translation && (
+                                  <p className="text-sm text-muted-foreground">
+                                    {usage.translation}
+                                  </p>
+                                )}
+                              </div>
+                            ),
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -378,18 +438,12 @@ function QuizCard({
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-4">
-          {!showAnswer && (
-            <Button onClick={onReveal} variant="outline" size="lg" className="gap-2 h-14 px-6">
-              <Eye className="w-5 h-5" />
-              显示答案
-            </Button>
-          )}
+        <div className="flex items-center justify-center gap-4 pt-4">
           <Button
             variant="outline"
             size="lg"
             onClick={() => onMark(false)}
-            className="gap-2 h-14 px-8 border-red-200 hover:bg-red-50 hover:text-red-600 hover:border-red-300 dark:border-red-800 dark:hover:bg-red-900/20"
+            className="gap-2.5 h-14 flex-1 max-w-[200px] text-base rounded-2xl border-red-200 bg-red-50/30 hover:bg-red-100/50 hover:text-red-700 hover:border-red-300 dark:border-red-900/50 dark:bg-red-950/20 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors shadow-sm"
           >
             <ThumbsDown className="w-5 h-5" />
             不通过
@@ -397,7 +451,7 @@ function QuizCard({
           <Button
             size="lg"
             onClick={() => onMark(true)}
-            className="gap-2 h-14 px-8 bg-green-600 hover:bg-green-700"
+            className="gap-2.5 h-14 flex-1 max-w-[200px] text-base rounded-2xl bg-green-600 hover:bg-green-700 text-white shadow-sm transition-colors"
           >
             <ThumbsUp className="w-5 h-5" />
             通过
@@ -423,44 +477,49 @@ function ResultPanel({
   const percentage = total > 0 ? Math.round((passed / total) * 100) : 0;
 
   return (
-    <div className="space-y-6">
-      <Card className="p-6">
-        <CardContent className="p-0">
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 mx-auto mb-4 bg-primary/10 rounded-full flex items-center justify-center">
-              <Award className="w-10 h-10 text-primary" />
+    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
+      <Card className="p-8 sm:p-10 border-none shadow-sm ring-1 ring-border/50 bg-card text-center">
+        <CardContent className="p-0 space-y-8">
+          <div>
+            <div className="w-24 h-24 mx-auto mb-6 bg-primary/10 rounded-full flex items-center justify-center ring-8 ring-primary/5">
+              <Award className="w-12 h-12 text-primary" />
             </div>
-            <h2 className="text-2xl font-bold mb-2">测验完成！</h2>
-            <p className="text-muted-foreground">
+            <h2 className="text-3xl font-bold tracking-tight mb-3">测验完成！</h2>
+            <div className="inline-flex items-center justify-center px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground font-medium">
               正确率: {percentage}% ({passed}/{total})
-            </p>
-          </div>
-
-          <div className="flex justify-center gap-8 mb-8">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 text-green-600 mb-1">
-                <Check className="w-5 h-5" />
-                <span className="text-2xl font-bold">{passed}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">通过</p>
-            </div>
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 text-red-600 mb-1">
-                <X className="w-5 h-5" />
-                <span className="text-2xl font-bold">{failed}</span>
-              </div>
-              <p className="text-sm text-muted-foreground">不通过</p>
             </div>
           </div>
 
-          <div className="flex gap-3">
-            <Button onClick={onRestart} variant="outline" className="flex-1 gap-2 h-12">
-              <RotateCcw className="w-4 h-4" />
+          <div className="flex justify-center gap-12 bg-secondary/30 rounded-2xl p-6 border border-border/50">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 text-green-600 mb-2">
+                <Check className="w-6 h-6" />
+                <span className="text-4xl font-bold">{passed}</span>
+              </div>
+              <p className="font-medium text-muted-foreground">通过</p>
+            </div>
+            <div className="w-px bg-border/50" />
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2 text-red-600 mb-2">
+                <X className="w-6 h-6" />
+                <span className="text-4xl font-bold">{failed}</span>
+              </div>
+              <p className="font-medium text-muted-foreground">不通过</p>
+            </div>
+          </div>
+
+          <div className="flex gap-4 pt-2">
+            <Button
+              onClick={onRestart}
+              variant="outline"
+              className="flex-1 gap-2 h-14 text-base rounded-xl shadow-sm"
+            >
+              <RotateCcw className="w-5 h-5" />
               再测一次
             </Button>
-            <Button asChild className="flex-1 gap-2 h-12">
+            <Button asChild className="flex-1 gap-2 h-14 text-base rounded-xl shadow-sm">
               <Link to={`/spaces/${spaceToken}`}>
-                <ArrowRight className="w-4 h-4" />
+                <ArrowRight className="w-5 h-5" />
                 返回列表
               </Link>
             </Button>
@@ -468,26 +527,47 @@ function ResultPanel({
         </CardContent>
       </Card>
 
-      <Card className="p-6">
+      <Card className="p-6 sm:p-8 border-none shadow-sm ring-1 ring-border/50">
         <CardContent className="p-0">
-          <h3 className="font-bold mb-4">测验结果详情</h3>
-          <div className="space-y-2">
+          <h3 className="font-semibold text-lg mb-6 flex items-center gap-2">测验结果详情</h3>
+          <div className="space-y-3">
             {quizWords.map((qw) => (
               <div
                 key={qw.word.id}
-                className={`flex items-center justify-between p-3 rounded-lg ${
-                  qw.passed ? 'bg-green-50 dark:bg-green-900/10' : 'bg-red-50 dark:bg-red-900/10'
-                }`}
+                className={cn(
+                  'flex items-center justify-between p-4 rounded-xl border',
+                  qw.passed
+                    ? 'bg-green-50/50 border-green-200/50 dark:bg-green-900/10 dark:border-green-900/30'
+                    : 'bg-red-50/50 border-red-200/50 dark:bg-red-900/10 dark:border-red-900/30',
+                )}
               >
-                <div className="flex items-center gap-3">
-                  {qw.passed ? (
-                    <Check className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <X className="w-5 h-5 text-red-600" />
-                  )}
-                  <span className="font-medium">{qw.word.content}</span>
+                <div className="flex items-center gap-3.5">
+                  <div
+                    className={cn(
+                      'p-1.5 rounded-full',
+                      qw.passed
+                        ? 'bg-green-100 dark:bg-green-900/30'
+                        : 'bg-red-100 dark:bg-red-900/30',
+                    )}
+                  >
+                    {qw.passed ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <X className="w-4 h-4 text-red-600" />
+                    )}
+                  </div>
+                  <span className="font-medium text-base">{qw.word.content}</span>
                 </div>
-                <span className="text-sm text-muted-foreground">Lv.{qw.word.level}</span>
+                <span
+                  className={cn(
+                    'text-sm font-medium px-2.5 py-1 rounded-lg',
+                    qw.passed
+                      ? 'text-green-700 bg-green-100/50 dark:text-green-400 dark:bg-green-900/20'
+                      : 'text-red-700 bg-red-100/50 dark:text-red-400 dark:bg-red-900/20',
+                  )}
+                >
+                  Lv.{qw.word.level}
+                </span>
               </div>
             ))}
           </div>

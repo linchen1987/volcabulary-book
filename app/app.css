@@ -174,4 +174,16 @@
   :root:not(.dark) .bg-grid-white\/\[0\.02\] {
     background-image: radial-gradient(circle, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
   }
+
+  input[type="range"] {
+    @apply h-2 bg-secondary rounded-lg appearance-none cursor-pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    @apply appearance-none w-4 h-4 bg-primary rounded-full transition-transform hover:scale-110 active:scale-110 shadow-sm ring-2 ring-background;
+  }
+
+  input[type="range"]::-moz-range-thumb {
+    @apply w-4 h-4 bg-primary rounded-full border-none transition-transform hover:scale-110 active:scale-110 shadow-sm ring-2 ring-background;
+  }
 }

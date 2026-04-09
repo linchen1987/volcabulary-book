@@ -1,14 +1,15 @@
 import { useLiveQuery } from 'dexie-react-hooks';
 import {
   Book,
+  BookOpen,
   ChevronDown,
+  GraduationCap,
   List,
   Monitor,
   Moon,
   PanelLeft,
   Settings,
   Sun,
-  Target,
 } from 'lucide-react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { useTheme } from '~/components/theme-provider';
@@ -137,7 +138,7 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
               }}
             >
               <div className="flex items-center gap-1 min-w-0 flex-1">
-                <div className="w-4" />
+                <BookOpen className="w-4 h-4 shrink-0" />
                 <span className="truncate">所有单词</span>
               </div>
             </button>
@@ -156,7 +157,7 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
               }}
             >
               <div className="flex items-center gap-1 min-w-0 flex-1">
-                <Target className="w-4 h-4" />
+                <GraduationCap className="w-4 h-4 shrink-0" />
                 <span className="truncate">测验</span>
               </div>
             </button>

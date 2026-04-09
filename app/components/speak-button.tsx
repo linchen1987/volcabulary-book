@@ -6,7 +6,7 @@ import { cn } from '~/lib/utils';
 interface SpeakButtonProps {
   text: string;
   className?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
 }
 
 export function SpeakButton({ text, className, size = 'sm' }: SpeakButtonProps) {
@@ -30,7 +30,7 @@ export function SpeakButton({ text, className, size = 'sm' }: SpeakButtonProps) 
     });
   }, [text, isSpeaking]);
 
-  const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : 'w-4 h-4';
+  const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-6 h-6' : 'w-4 h-4';
 
   return (
     <button

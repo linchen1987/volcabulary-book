@@ -9,6 +9,7 @@ import { PageHeader } from '~/components/page-header';
 import { StorageConfig } from '~/components/storage-config';
 import { SyncButton } from '~/components/sync-button';
 import { SyncStatus } from '~/components/sync-status';
+import { TTSConfig } from '~/components/tts-config';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -234,6 +235,16 @@ export default function SpaceSettingsPage() {
               </CardContent>
             </Card>
           )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle>朗读设置</CardTitle>
+              <CardDescription>选择单词/短语的朗读引擎</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <TTSConfig />
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>

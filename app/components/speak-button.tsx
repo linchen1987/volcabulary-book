@@ -1,7 +1,7 @@
 import { Volume2 } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
-import { cn } from '~/lib/utils';
 import { TTSService } from '~/lib/services/tts';
+import { cn } from '~/lib/utils';
 
 interface SpeakButtonProps {
   text: string;

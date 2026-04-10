@@ -4,7 +4,7 @@
 Vocabulary Book - A web application for recording and learning English words. Built with React 19, React Router 7, Dexie (IndexedDB), Tailwind CSS v4, and Cloudflare Workers.
 
 ## Important Tips
-- 设计到 UI 改动时，先进行布局等 UI 设计，保证 ui/ux 体验, 再实现 UI. 要求: 一致、亲密、自然、舒服
+- 涉及到 UI 改动时，先进行布局等 UI 设计，保证 ui/ux 体验, 再实现 UI. 要求: 一致、亲密、自然、舒服
 - IndexedDB 事务内的并发 `Promise.all` 调用存在 read-then-write 竞态风险。当多个操作读写同一记录的字段（如 `relatedWordIds`），必须放在**同一个事务内顺序执行**，不能用 `Promise.all` 并发各自独立事务，否则后写的事务会覆盖先写的变更导致数据丢失。
 - 业务逻辑尽量提取为纯函数（如 `app/lib/services/related-words.ts`），与数据库操作分离，便于单元测试。
 

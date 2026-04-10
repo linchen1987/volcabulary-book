@@ -16,4 +16,5 @@ export const STORAGE_KEYS = {
   SPACE_AUTO_SYNC_PREFIX: '@vocab-book/space_auto_sync_',
   LIST_VIEW_CONFIG: '@vocab-book/list_view_config',
   TTS_PROVIDER: '@vocab-book/tts_provider',
+  QUIZ_CONFIG: '@vocab-book/quiz_config',
 } as const;

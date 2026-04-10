@@ -26,7 +26,9 @@ import { PageHeader } from '~/components/page-header';
 import { SpeakButton } from '~/components/speak-button';
 import { Button } from '~/components/ui/button';
 import { Card, CardContent } from '~/components/ui/card';
+import { Input } from '~/components/ui/input';
 import { Progress } from '~/components/ui/progress';
+import { useQuizConfig } from '~/hooks/use-quiz-config';
 import type { WordStats } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
 import type { Word } from '~/lib/types';
@@ -66,8 +68,7 @@ export default function QuizPage() {
   const allWords = useLiveQuery(() => WordService.getWordsBySpace(spaceId), [spaceId]);
 
   const [quizState, setQuizState] = useState<QuizState>('setup');
-  const [selectedLevel, setSelectedLevel] = useState<number | 'all'>('all');
-  const [quizCount, setQuizCount] = useState(10);
+  const { selectedLevel, setSelectedLevel, quizCount, setQuizCount } = useQuizConfig();
   const [quizWords, setQuizWords] = useState<QuizWord[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -86,7 +87,7 @@ export default function QuizPage() {
     if (quizCount > availableCount && availableCount > 0) {
       setQuizCount(availableCount);
     }
-  }, [availableCount, quizCount]);
+  }, [availableCount, quizCount, setQuizCount]);
 
   const startQuiz = () => {
     if (!allWords || allWords.length === 0) {
@@ -252,7 +253,8 @@ export default function QuizPage() {
         open={dialogMode !== null}
         onOpenChange={(open) => !open && closeDialog()}
         spaceId={spaceId}
-        mode={dialogMode || 'view'}
+        // 必须默认传 'add'，确保 dialogMode 变为 'view' 时能触发组件内部 mode 的变化
+        mode={dialogMode || 'add'}
         wordId={selectedWordId}
         onSuccess={() => {}}
         onNavigateToWord={handleNavigateToWord}
@@ -287,21 +289,21 @@ function SetupPanel({
   return (
     <Card className="p-6 sm:p-8 border-none shadow-sm ring-1 ring-border/50 bg-card">
       <CardContent className="space-y-8 p-0">
-        <div className="flex items-center gap-3 pb-2 border-b border-border/50">
+        <div className="flex items-center gap-3 pb-4 border-b border-border/50">
           <div className="p-2.5 bg-primary/10 rounded-xl">
             <GraduationCap className="w-6 h-6 text-primary" />
           </div>
           <h2 className="text-xl font-semibold tracking-tight">测验设置</h2>
         </div>
 
-        <div className="space-y-3">
-          <span className="text-sm font-medium text-muted-foreground">测验范围</span>
-          <div className="flex flex-wrap gap-2.5">
+        <div className="space-y-4">
+          <label className="text-base font-medium text-foreground block">测验范围</label>
+          <div className="flex flex-wrap gap-3">
             <button
               type="button"
               onClick={() => setSelectedLevel('all')}
               className={cn(
-                'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+                'px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
                 selectedLevel === 'all'
                   ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 ring-offset-1 ring-offset-background'
                   : 'bg-secondary/60 hover:bg-secondary text-secondary-foreground hover:shadow-sm',
@@ -315,7 +317,7 @@ function SetupPanel({
                 type="button"
                 onClick={() => setSelectedLevel(level)}
                 className={cn(
-                  'px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+                  'px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
                   selectedLevel === level
                     ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 ring-offset-1 ring-offset-background'
                     : 'bg-secondary/60 hover:bg-secondary text-secondary-foreground hover:shadow-sm',
@@ -327,25 +329,26 @@ function SetupPanel({
           </div>
         </div>
 
-        <div className="space-y-4 bg-secondary/30 p-4 sm:p-5 rounded-2xl border border-border/50">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-muted-foreground">测验数量</span>
-            <span className="text-2xl font-bold text-primary tabular-nums">{quizCount}</span>
-          </div>
-          <div className="py-2">
-            <input
-              type="range"
+        <div className="space-y-4">
+          <label className="text-base font-medium text-foreground block">测验数量</label>
+          <div className="flex items-center gap-3">
+            <Input
+              type="number"
               min={1}
               max={Math.max(availableCount, 1)}
               value={quizCount}
-              onChange={(e) => setQuizCount(Number(e.target.value))}
-              className="w-full"
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                if (val >= 1 && val <= Math.max(availableCount, 1)) {
+                  setQuizCount(val);
+                }
+              }}
+              className="w-24 h-11 text-base rounded-xl text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
+            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+              / {availableCount} 个单词
+            </span>
           </div>
-          <p className="text-sm text-muted-foreground">
-            当前范围内可选 <span className="font-semibold text-foreground">{availableCount}</span>{' '}
-            个单词
-          </p>
         </div>
 
         <div className="pt-2">

@@ -38,20 +38,30 @@ import { parseSpaceId } from '~/lib/utils/token';
 type QuizState = 'setup' | 'quiz' | 'result';
 
 function hasTranslationOrUsages(word: Word): boolean {
-  return !!(word.translation || word.usages?.some((u) => u.sentence));
+  return !!(
+    word.translation ||
+    word.description ||
+    word.usages?.some((u) => u.sentence) ||
+    (word.relatedWordIds && word.relatedWordIds.length > 0)
+  );
 }
 
-function getTranslationDisplay(word: Word): {
+function getTranslationDisplay(
+  word: Word,
+  allWords?: Word[],
+): {
   translation?: string;
+  description?: string;
   usages?: Array<{ sentence: string; translation?: string }>;
+  relatedWords?: Word[];
 } {
-  if (word.translation || word.usages) {
-    return {
-      translation: word.translation,
-      usages: word.usages,
-    };
-  }
-  return {};
+  const relatedWords = allWords?.filter((w) => word.relatedWordIds?.includes(w.id));
+  return {
+    translation: word.translation,
+    description: word.description,
+    usages: word.usages,
+    relatedWords: relatedWords?.length ? relatedWords : undefined,
+  };
 }
 
 interface QuizWord {
@@ -206,14 +216,14 @@ export default function QuizPage() {
               <span className="text-sm font-medium text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
                 {currentIndex + 1} / {quizWords.length}
               </span>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-3 text-sm font-medium">
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-md">
-                    <ThumbsUp className="w-3.5 h-3.5" />
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className="flex items-center gap-2 sm:gap-3 text-xs sm:text-sm font-medium">
+                  <div className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 rounded-md">
+                    <ThumbsUp className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     <span>{quizWords.filter((q) => q.passed === true).length}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 px-2 py-1 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded-md">
-                    <ThumbsDown className="w-3.5 h-3.5" />
+                  <div className="flex items-center gap-1 sm:gap-1.5 px-2 py-1 bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 rounded-md">
+                    <ThumbsDown className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     <span>{quizWords.filter((q) => q.passed === false).length}</span>
                   </div>
                 </div>
@@ -231,14 +241,15 @@ export default function QuizPage() {
 
             <Progress value={((currentIndex + 1) / quizWords.length) * 100} className="h-1.5" />
 
-            <div className="pt-2">
+            <div className="pt-2 w-full">
               <QuizCard
                 quizWord={currentQuizWord}
                 showAnswer={showAnswer}
                 onToggleAnswer={toggleAnswer}
                 onMark={markWord}
                 onLevelChange={handleLevelChange}
-                onViewDetail={() => openViewDialog(currentQuizWord.word.id)}
+                allWords={allWords}
+                onOpenViewDialog={openViewDialog}
               />
             </div>
           </div>
@@ -287,23 +298,23 @@ function SetupPanel({
     : [];
 
   return (
-    <Card className="p-6 sm:p-8 border-none shadow-sm ring-1 ring-border/50 bg-card">
-      <CardContent className="space-y-8 p-0">
+    <Card className="p-4 sm:p-8 border-none shadow-sm ring-1 ring-border/50 bg-card">
+      <CardContent className="space-y-6 sm:space-y-8 p-0">
         <div className="flex items-center gap-3 pb-4 border-b border-border/50">
-          <div className="p-2.5 bg-primary/10 rounded-xl">
-            <GraduationCap className="w-6 h-6 text-primary" />
+          <div className="p-2 sm:p-2.5 bg-primary/10 rounded-xl">
+            <GraduationCap className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
           </div>
-          <h2 className="text-xl font-semibold tracking-tight">测验设置</h2>
+          <h2 className="text-lg sm:text-xl font-semibold tracking-tight">测验设置</h2>
         </div>
 
-        <div className="space-y-4">
-          <label className="text-base font-medium text-foreground block">测验范围</label>
-          <div className="flex flex-wrap gap-3">
+        <div className="space-y-3 sm:space-y-4">
+          <div className="text-sm sm:text-base font-medium text-foreground block">测验范围</div>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               type="button"
               onClick={() => setSelectedLevel('all')}
               className={cn(
-                'px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                'px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200',
                 selectedLevel === 'all'
                   ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 ring-offset-1 ring-offset-background'
                   : 'bg-secondary/60 hover:bg-secondary text-secondary-foreground hover:shadow-sm',
@@ -317,7 +328,7 @@ function SetupPanel({
                 type="button"
                 onClick={() => setSelectedLevel(level)}
                 className={cn(
-                  'px-5 py-2.5 rounded-xl text-sm font-medium transition-all duration-200',
+                  'px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200',
                   selectedLevel === level
                     ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 ring-offset-1 ring-offset-background'
                     : 'bg-secondary/60 hover:bg-secondary text-secondary-foreground hover:shadow-sm',
@@ -329,8 +340,8 @@ function SetupPanel({
           </div>
         </div>
 
-        <div className="space-y-4">
-          <label className="text-base font-medium text-foreground block">测验数量</label>
+        <div className="space-y-3 sm:space-y-4">
+          <div className="text-sm sm:text-base font-medium text-foreground block">测验数量</div>
           <div className="flex items-center gap-3">
             <Input
               type="number"
@@ -343,9 +354,9 @@ function SetupPanel({
                   setQuizCount(val);
                 }
               }}
-              className="w-24 h-11 text-base rounded-xl text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              className="w-20 sm:w-24 h-10 sm:h-11 text-sm sm:text-base rounded-xl text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             />
-            <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
+            <span className="text-xs sm:text-sm font-medium text-muted-foreground whitespace-nowrap">
               / {availableCount} 个单词
             </span>
           </div>
@@ -356,15 +367,15 @@ function SetupPanel({
             onClick={onStart}
             disabled={availableCount === 0}
             size="lg"
-            className="w-full h-14 text-base font-medium gap-2 rounded-xl shadow-sm"
+            className="w-full h-12 sm:h-14 text-sm sm:text-base font-medium gap-2 rounded-xl shadow-sm"
           >
-            <Shuffle className="w-5 h-5" />
+            <Shuffle className="w-4 h-4 sm:w-5 sm:h-5" />
             开始测验
           </Button>
         </div>
 
         {availableCount === 0 && (
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-xs sm:text-sm text-muted-foreground text-center">
             没有可选的单词，请先添加单词或更改筛选条件
           </p>
         )}
@@ -379,55 +390,60 @@ function QuizCard({
   onToggleAnswer,
   onMark,
   onLevelChange,
-  onViewDetail,
+  allWords,
+  onOpenViewDialog,
 }: {
   quizWord: QuizWord;
   showAnswer: boolean;
   onToggleAnswer: () => void;
   onMark: (passed: boolean) => void;
   onLevelChange: (wordId: string, level: number) => void;
-  onViewDetail: () => void;
+  allWords?: Word[];
+  onOpenViewDialog: (wordId: string) => void;
 }) {
   const { word } = quizWord;
 
   return (
     <Card className="overflow-hidden border-none shadow-sm ring-1 ring-border/50">
-      <CardContent className="p-6 sm:p-10 space-y-8">
-        <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-3">
-            <h2 className="text-4xl sm:text-5xl font-bold tracking-tight">{word.content}</h2>
+      <CardContent className="p-4 sm:p-10 space-y-6 sm:space-y-8 w-full">
+        <div className="text-center space-y-2 sm:space-y-3">
+          <div className="flex items-center justify-center gap-2 sm:gap-3">
+            <h2 className="text-3xl sm:text-5xl font-bold tracking-tight">{word.content}</h2>
             <SpeakButton text={word.content} size="lg" />
           </div>
           {word.phonetic && (
-            <p className="text-lg text-muted-foreground font-medium">{word.phonetic}</p>
+            <p className="text-base sm:text-lg text-muted-foreground font-medium">
+              {word.phonetic}
+            </p>
           )}
         </div>
 
-        <div className="flex items-center justify-center">
-          <div className="flex items-center justify-center gap-2 bg-secondary/40 p-1.5 rounded-2xl border border-border/50 shadow-sm">
-            <div className="px-2">
+        <div className="flex flex-col items-center justify-center gap-3">
+          <div className="flex items-center justify-center bg-secondary/40 p-1 sm:p-1.5 rounded-2xl border border-border/50 shadow-sm">
+            <div className="px-1 sm:px-2">
               <LevelSelector
                 value={word.level}
                 onChange={(level) => onLevelChange(word.id, level)}
               />
             </div>
-            <div className="w-px h-6 bg-border/50 mx-1" />
+          </div>
+
+          <div className="flex items-center justify-center gap-1 sm:gap-2 bg-secondary/40 p-1 sm:p-1.5 rounded-2xl border border-border/50 shadow-sm">
             <Button
               variant="ghost"
-              size="sm"
-              className="h-9 px-4 gap-2 font-medium rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
-              onClick={onViewDetail}
+              size="icon"
+              className="h-8 w-8 sm:h-9 sm:w-9 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all rounded-xl"
+              onClick={() => onOpenViewDialog(word.id)}
               title="查看详情"
             >
               <BookOpen className="w-4 h-4" />
-              <span>详情</span>
             </Button>
-            <div className="w-px h-6 bg-border/50 mx-1" />
+            <div className="w-px h-5 sm:h-6 bg-border/50 mx-1" />
             <Button
               variant="ghost"
               size="sm"
               className={cn(
-                'h-9 px-4 gap-2 font-medium rounded-xl transition-all',
+                'h-8 sm:h-9 px-3 sm:px-4 gap-1.5 sm:gap-2 text-xs sm:text-sm font-medium rounded-xl transition-all',
                 showAnswer
                   ? 'bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary'
                   : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
@@ -435,49 +451,96 @@ function QuizCard({
               onClick={onToggleAnswer}
               title={showAnswer ? '隐藏答案' : '显示答案'}
             >
-              {showAnswer ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showAnswer ? (
+                <EyeOff className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              ) : (
+                <Eye className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              )}
               <span>{showAnswer ? '隐藏' : '答案'}</span>
             </Button>
           </div>
         </div>
 
         {showAnswer && (
-          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300 w-full">
             {(() => {
               if (!hasTranslationOrUsages(word)) return null;
-              const display = getTranslationDisplay(word);
+              const display = getTranslationDisplay(word, allWords);
               return (
-                <div className="bg-secondary/30 rounded-2xl p-6 border border-border/50">
-                  <h3 className="text-sm font-semibold text-primary mb-4 flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4" />
-                    翻译与例句
-                  </h3>
-                  <div className="space-y-4">
+                <div className="bg-secondary/30 rounded-2xl p-4 sm:p-6 border border-border/50 text-left w-full">
+                  <div className="space-y-5 sm:space-y-6">
                     {display.translation && (
-                      <p className="text-base text-foreground leading-relaxed">
-                        {display.translation}
-                      </p>
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-semibold text-primary mb-1.5 sm:mb-2 flex items-center gap-1.5 sm:gap-2">
+                          <Lightbulb className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          翻译
+                        </h3>
+                        <p className="text-sm sm:text-base text-foreground leading-relaxed">
+                          {display.translation}
+                        </p>
+                      </div>
                     )}
+
+                    {display.description && (
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-semibold text-primary mb-1.5 sm:mb-2 flex items-center gap-1.5 sm:gap-2">
+                          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          介绍
+                        </h3>
+                        <p className="text-sm sm:text-base text-foreground leading-relaxed whitespace-pre-wrap">
+                          {display.description}
+                        </p>
+                      </div>
+                    )}
+
                     {display.usages && display.usages.length > 0 && (
-                      <div className="space-y-4 pt-2">
-                        {display.usages.map(
-                          (usage) =>
-                            usage.sentence && (
-                              <div
-                                key={usage.sentence}
-                                className="pl-4 border-l-2 border-primary/30 space-y-1.5"
-                              >
-                                <p className="text-base text-foreground leading-relaxed">
-                                  {usage.sentence}
-                                </p>
-                                {usage.translation && (
-                                  <p className="text-sm text-muted-foreground">
-                                    {usage.translation}
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-semibold text-primary mb-1.5 sm:mb-2 flex items-center gap-1.5 sm:gap-2">
+                          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          例句
+                        </h3>
+                        <div className="space-y-3 sm:space-y-4">
+                          {display.usages.map(
+                            (usage) =>
+                              usage.sentence && (
+                                <div
+                                  key={usage.sentence}
+                                  className="pl-3 sm:pl-4 border-l-2 border-primary/30 space-y-1 sm:space-y-1.5"
+                                >
+                                  <p className="text-sm sm:text-base text-foreground leading-relaxed">
+                                    {usage.sentence}
                                   </p>
-                                )}
-                              </div>
-                            ),
-                        )}
+                                  {usage.translation && (
+                                    <p className="text-xs sm:text-sm text-muted-foreground">
+                                      {usage.translation}
+                                    </p>
+                                  )}
+                                </div>
+                              ),
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {display.relatedWords && display.relatedWords.length > 0 && (
+                      <div>
+                        <h3 className="text-xs sm:text-sm font-semibold text-primary mb-1.5 sm:mb-2 flex items-center gap-1.5 sm:gap-2">
+                          <Lightbulb className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                          相关词
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {display.relatedWords.map((rw) => (
+                            <Button
+                              key={rw.id}
+                              variant="outline"
+                              size="sm"
+                              className="h-7 sm:h-8 px-2.5 sm:px-3 text-xs sm:text-sm rounded-lg"
+                              onClick={() => onOpenViewDialog(rw.id)}
+                            >
+                              {rw.content}
+                            </Button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -487,22 +550,22 @@ function QuizCard({
           </div>
         )}
 
-        <div className="flex items-center justify-center gap-4 pt-4">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 pt-2 sm:pt-4 w-full">
           <Button
             variant="outline"
             size="lg"
             onClick={() => onMark(false)}
-            className="gap-2.5 h-14 flex-1 max-w-[200px] text-base rounded-2xl border-red-200 bg-red-50/30 hover:bg-red-100/50 hover:text-red-700 hover:border-red-300 dark:border-red-900/50 dark:bg-red-950/20 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors shadow-sm"
+            className="w-full sm:w-auto gap-2 sm:gap-2.5 h-12 sm:h-14 sm:flex-1 sm:max-w-[200px] text-sm sm:text-base rounded-xl sm:rounded-2xl border-red-200 bg-red-50/30 hover:bg-red-100/50 hover:text-red-700 hover:border-red-300 dark:border-red-900/50 dark:bg-red-950/20 dark:hover:bg-red-900/40 dark:hover:text-red-400 transition-colors shadow-sm"
           >
-            <ThumbsDown className="w-5 h-5" />
+            <ThumbsDown className="w-4 h-4 sm:w-5 sm:h-5" />
             不通过
           </Button>
           <Button
             size="lg"
             onClick={() => onMark(true)}
-            className="gap-2.5 h-14 flex-1 max-w-[200px] text-base rounded-2xl bg-green-600 hover:bg-green-700 text-white shadow-sm transition-colors"
+            className="w-full sm:w-auto gap-2 sm:gap-2.5 h-12 sm:h-14 sm:flex-1 sm:max-w-[200px] text-sm sm:text-base rounded-xl sm:rounded-2xl bg-green-600 hover:bg-green-700 text-white shadow-sm transition-colors"
           >
-            <ThumbsUp className="w-5 h-5" />
+            <ThumbsUp className="w-4 h-4 sm:w-5 sm:h-5" />
             通过
           </Button>
         </div>
@@ -526,49 +589,54 @@ function ResultPanel({
   const percentage = total > 0 ? Math.round((passed / total) * 100) : 0;
 
   return (
-    <div className="space-y-8 animate-in fade-in zoom-in-95 duration-500">
-      <Card className="p-8 sm:p-10 border-none shadow-sm ring-1 ring-border/50 bg-card text-center">
-        <CardContent className="p-0 space-y-8">
+    <div className="space-y-6 sm:space-y-8 animate-in fade-in zoom-in-95 duration-500 w-full">
+      <Card className="p-6 sm:p-10 border-none shadow-sm ring-1 ring-border/50 bg-card text-center">
+        <CardContent className="p-0 space-y-6 sm:space-y-8">
           <div>
-            <div className="w-24 h-24 mx-auto mb-6 bg-primary/10 rounded-full flex items-center justify-center ring-8 ring-primary/5">
-              <Award className="w-12 h-12 text-primary" />
+            <div className="w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4 sm:mb-6 bg-primary/10 rounded-full flex items-center justify-center ring-8 ring-primary/5">
+              <Award className="w-10 h-10 sm:w-12 sm:h-12 text-primary" />
             </div>
-            <h2 className="text-3xl font-bold tracking-tight mb-3">测验完成！</h2>
-            <div className="inline-flex items-center justify-center px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground font-medium">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight mb-2 sm:mb-3">
+              测验完成！
+            </h2>
+            <div className="inline-flex items-center justify-center px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground font-medium text-sm sm:text-base">
               正确率: {percentage}% ({passed}/{total})
             </div>
           </div>
 
-          <div className="flex justify-center gap-12 bg-secondary/30 rounded-2xl p-6 border border-border/50">
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 text-green-600 mb-2">
-                <Check className="w-6 h-6" />
-                <span className="text-4xl font-bold">{passed}</span>
+          <div className="flex flex-row justify-center gap-6 sm:gap-12 bg-secondary/30 rounded-2xl p-4 sm:p-6 border border-border/50">
+            <div className="text-center flex-1 sm:flex-none">
+              <div className="flex items-center justify-center gap-2 text-green-600 mb-1 sm:mb-2">
+                <Check className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="text-3xl sm:text-4xl font-bold">{passed}</span>
               </div>
-              <p className="font-medium text-muted-foreground">通过</p>
+              <p className="font-medium text-muted-foreground text-sm sm:text-base">通过</p>
             </div>
             <div className="w-px bg-border/50" />
-            <div className="text-center">
-              <div className="flex items-center justify-center gap-2 text-red-600 mb-2">
-                <X className="w-6 h-6" />
-                <span className="text-4xl font-bold">{failed}</span>
+            <div className="text-center flex-1 sm:flex-none">
+              <div className="flex items-center justify-center gap-2 text-red-600 mb-1 sm:mb-2">
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                <span className="text-3xl sm:text-4xl font-bold">{failed}</span>
               </div>
-              <p className="font-medium text-muted-foreground">不通过</p>
+              <p className="font-medium text-muted-foreground text-sm sm:text-base">不通过</p>
             </div>
           </div>
 
-          <div className="flex gap-4 pt-2">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
             <Button
               onClick={onRestart}
               variant="outline"
-              className="flex-1 gap-2 h-14 text-base rounded-xl shadow-sm"
+              className="flex-1 gap-2 h-12 sm:h-14 text-sm sm:text-base rounded-xl shadow-sm"
             >
-              <RotateCcw className="w-5 h-5" />
+              <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5" />
               再测一次
             </Button>
-            <Button asChild className="flex-1 gap-2 h-14 text-base rounded-xl shadow-sm">
+            <Button
+              asChild
+              className="flex-1 gap-2 h-12 sm:h-14 text-sm sm:text-base rounded-xl shadow-sm"
+            >
               <Link to={`/spaces/${spaceToken}`}>
-                <ArrowRight className="w-5 h-5" />
+                <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                 返回列表
               </Link>
             </Button>
@@ -576,40 +644,42 @@ function ResultPanel({
         </CardContent>
       </Card>
 
-      <Card className="p-6 sm:p-8 border-none shadow-sm ring-1 ring-border/50">
+      <Card className="p-4 sm:p-8 border-none shadow-sm ring-1 ring-border/50">
         <CardContent className="p-0">
-          <h3 className="font-semibold text-lg mb-6 flex items-center gap-2">测验结果详情</h3>
-          <div className="space-y-3">
+          <h3 className="font-semibold text-base sm:text-lg mb-4 sm:mb-6 flex items-center gap-2">
+            测验结果详情
+          </h3>
+          <div className="space-y-2 sm:space-y-3">
             {quizWords.map((qw) => (
               <div
                 key={qw.word.id}
                 className={cn(
-                  'flex items-center justify-between p-4 rounded-xl border',
+                  'flex items-center justify-between p-3 sm:p-4 rounded-xl border',
                   qw.passed
                     ? 'bg-green-50/50 border-green-200/50 dark:bg-green-900/10 dark:border-green-900/30'
                     : 'bg-red-50/50 border-red-200/50 dark:bg-red-900/10 dark:border-red-900/30',
                 )}
               >
-                <div className="flex items-center gap-3.5">
+                <div className="flex items-center gap-2.5 sm:gap-3.5">
                   <div
                     className={cn(
-                      'p-1.5 rounded-full',
+                      'p-1 sm:p-1.5 rounded-full',
                       qw.passed
                         ? 'bg-green-100 dark:bg-green-900/30'
                         : 'bg-red-100 dark:bg-red-900/30',
                     )}
                   >
                     {qw.passed ? (
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" />
                     ) : (
-                      <X className="w-4 h-4 text-red-600" />
+                      <X className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-600" />
                     )}
                   </div>
-                  <span className="font-medium text-base">{qw.word.content}</span>
+                  <span className="font-medium text-sm sm:text-base">{qw.word.content}</span>
                 </div>
                 <span
                   className={cn(
-                    'text-sm font-medium px-2.5 py-1 rounded-lg',
+                    'text-xs sm:text-sm font-medium px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg',
                     qw.passed
                       ? 'text-green-700 bg-green-100/50 dark:text-green-400 dark:bg-green-900/20'
                       : 'text-red-700 bg-red-100/50 dark:text-red-400 dark:bg-red-900/20',

@@ -5,6 +5,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Award,
+  BookOpen,
   Check,
   Eye,
   EyeOff,
@@ -19,6 +20,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { toast } from 'sonner';
+import { AddWordDialog } from '~/components/add-word-dialog';
 import { LevelSelector } from '~/components/level-selector';
 import { PageHeader } from '~/components/page-header';
 import { SpeakButton } from '~/components/speak-button';
@@ -69,6 +71,8 @@ export default function QuizPage() {
   const [quizWords, setQuizWords] = useState<QuizWord[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [dialogMode, setDialogMode] = useState<'view' | 'edit' | null>(null);
+  const [selectedWordId, setSelectedWordId] = useState<string | undefined>();
 
   const currentQuizWord = quizWords[currentIndex];
 
@@ -149,6 +153,24 @@ export default function QuizPage() {
     setShowAnswer(false);
   };
 
+  const openViewDialog = (wordId: string) => {
+    setSelectedWordId(wordId);
+    setDialogMode('view');
+  };
+
+  const closeDialog = () => {
+    setDialogMode(null);
+    setSelectedWordId(undefined);
+  };
+
+  const handleNavigateToWord = (wordId: string, mode: 'edit' | 'view') => {
+    closeDialog();
+    setTimeout(() => {
+      setSelectedWordId(wordId);
+      setDialogMode(mode);
+    }, 0);
+  };
+
   if (!space) return null;
 
   return (
@@ -215,6 +237,7 @@ export default function QuizPage() {
                 onToggleAnswer={toggleAnswer}
                 onMark={markWord}
                 onLevelChange={handleLevelChange}
+                onViewDetail={() => openViewDialog(currentQuizWord.word.id)}
               />
             </div>
           </div>
@@ -224,6 +247,16 @@ export default function QuizPage() {
           <ResultPanel quizWords={quizWords} onRestart={stopQuiz} spaceToken={spaceToken || ''} />
         )}
       </div>
+
+      <AddWordDialog
+        open={dialogMode !== null}
+        onOpenChange={(open) => !open && closeDialog()}
+        spaceId={spaceId}
+        mode={dialogMode || 'view'}
+        wordId={selectedWordId}
+        onSuccess={() => {}}
+        onNavigateToWord={handleNavigateToWord}
+      />
     </>
   );
 }
@@ -343,12 +376,14 @@ function QuizCard({
   onToggleAnswer,
   onMark,
   onLevelChange,
+  onViewDetail,
 }: {
   quizWord: QuizWord;
   showAnswer: boolean;
   onToggleAnswer: () => void;
   onMark: (passed: boolean) => void;
   onLevelChange: (wordId: string, level: number) => void;
+  onViewDetail: () => void;
 }) {
   const { word } = quizWord;
 
@@ -373,6 +408,17 @@ function QuizCard({
                 onChange={(level) => onLevelChange(word.id, level)}
               />
             </div>
+            <div className="w-px h-6 bg-border/50 mx-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-9 px-4 gap-2 font-medium rounded-xl text-muted-foreground hover:bg-secondary hover:text-foreground transition-all"
+              onClick={onViewDetail}
+              title="查看详情"
+            >
+              <BookOpen className="w-4 h-4" />
+              <span>详情</span>
+            </Button>
             <div className="w-px h-6 bg-border/50 mx-1" />
             <Button
               variant="ghost"

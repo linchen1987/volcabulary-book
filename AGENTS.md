@@ -29,23 +29,68 @@ Vocabulary Book - A web application for recording and learning English words. Bu
 
 ```
 app/
-├── components/          # Reusable UI components
-│   ├── ui/             # Base UI components (Radix + Tailwind)
-│   └── *.tsx           # Feature components
-├── hooks/              # Custom React hooks
-├── lib/                # Core utilities and business logic
-│   ├── db.ts          # Dexie database setup
-│   ├── types.ts       # TypeScript type definitions
-│   ├── constants.ts   # Application constants
-│   ├── utils.ts       # Utility functions
-│   ├── services/      # Business logic services
-│   ├── stores/        # Zustand stores
-│   └── utils/         # Helper utilities
-├── routes/             # React Router route components
-├── services/           # External service clients
-├── root.tsx           # App root component
-├── routes.ts          # Route configuration
-└── entry.server.tsx   # Server entry point
+├── components/                # Reusable UI components
+│   ├── ui/                   # Base UI components (Radix + Tailwind)
+│   ├── add-word-dialog.tsx   # Add/edit word dialog
+│   ├── level-selector.tsx    # Word difficulty level selector
+│   ├── page-header.tsx       # Page header component
+│   ├── related-words-selector.tsx # Related words picker
+│   ├── sidebar.tsx           # App sidebar navigation
+│   ├── speak-button.tsx      # TTS speak button
+│   ├── storage-config.tsx    # Storage (WebDAV/S3) configuration
+│   ├── sync-actions.tsx      # Sync action buttons
+│   ├── sync-button.tsx       # Sync trigger button
+│   ├── sync-status.tsx       # Sync status display
+│   ├── theme-provider.tsx    # Theme context provider
+│   └── tts-config.tsx        # TTS configuration
+├── hooks/                    # Custom React hooks
+│   ├── use-list-view-config.ts
+│   ├── use-local-storage.ts
+│   ├── use-pwa.ts
+│   ├── use-service-worker-update.ts
+│   └── use-space-auto-sync.ts
+├── lib/                      # Core utilities and business logic
+│   ├── db.ts                 # Dexie database setup
+│   ├── types.ts              # TypeScript type definitions
+│   ├── constants.ts          # Application constants
+│   ├── utils.ts              # Utility functions
+│   ├── services/             # Business logic services
+│   │   ├── data-service.ts   # Generic CRUD data operations
+│   │   ├── data-tools-service.ts # Data debugging tools
+│   │   ├── export-service.ts # Word export logic
+│   │   ├── fs-service.ts     # Filesystem abstraction
+│   │   ├── import-service.ts # Word import logic
+│   │   ├── related-words.ts  # Related words business logic (pure functions)
+│   │   ├── word-service.ts   # Word-specific operations
+│   │   ├── sync/             # Sync engine
+│   │   └── tts/              # Text-to-speech service
+│   │       ├── providers/    # TTS providers (dictionary-api, web-speech)
+│   │       ├── cache.ts      # Audio cache
+│   │       └── index.ts      # TTS service entry
+│   ├── stores/               # Zustand stores
+│   │   ├── sidebar-store.ts
+│   │   └── sync-store.ts
+│   └── utils/                # Helper utilities
+│       ├── search.ts         # Search utility functions
+│       └── token.ts          # Token utilities
+├── routes/                   # React Router route components
+│   ├── api.fs.ts             # Filesystem API endpoint
+│   ├── landing.tsx           # Landing page
+│   ├── manifest.tsx          # PWA manifest
+│   ├── settings.tsx          # App settings page
+│   ├── spaces.tsx            # Spaces list page
+│   ├── playground/           # Dev/debug tools
+│   └── space-item/           # Space-scoped routes
+│       ├── layout.tsx        # Space layout
+│       ├── list.tsx          # Word list view
+│       ├── quiz.tsx          # Quiz mode
+│       └── settings.tsx      # Space settings
+├── services/                 # External service clients
+│   └── fs-client.ts          # Filesystem API client
+├── root.tsx                  # App root component
+├── routes.ts                 # Route configuration
+├── app.css                   # Global styles
+└── entry.server.tsx          # Server entry point
 ```
 
 ## Tech Stack

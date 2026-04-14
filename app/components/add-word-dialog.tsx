@@ -1,7 +1,7 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertCircle, ArrowRight, Edit2, Plus, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Edit2, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -50,12 +50,17 @@ interface FormState {
   level: number;
 }
 
+const SEARCH_PAGE_SIZE = 20;
+
 interface RelatedWordsState {
   words: Word[];
   ids: string[];
   originalIds: string[];
   searchQuery: string;
   searchResults: Word[];
+  searchOffset: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
 }
 
 const createEmptyUsage = (): UsageItem => ({ id: nanoid(), sentence: '', translation: '' });
@@ -84,6 +89,9 @@ const createDefaultRelatedState = (): RelatedWordsState => ({
   originalIds: [],
   searchQuery: '',
   searchResults: [],
+  searchOffset: 0,
+  hasMore: false,
+  isLoadingMore: false,
 });
 
 interface AddWordDialogProps {
@@ -210,15 +218,45 @@ export function AddWordDialog({
     }));
   };
 
-  const handleSearchWords = async (query: string) => {
+  const searchRelatedWords = useCallback(
+    async (query: string, offset: number, append: boolean) => {
+      if (!query.trim()) {
+        setRelated((prev) => ({
+          ...prev,
+          searchResults: [],
+          searchOffset: 0,
+          hasMore: false,
+          isLoadingMore: false,
+        }));
+        return;
+      }
+      const results = await WordService.getWordsBySpace(spaceId, {
+        search: query,
+        limit: SEARCH_PAGE_SIZE,
+        offset,
+      });
+      const filtered = results.filter((w) => w.id !== wordId && !related.ids.includes(w.id));
+      const hasMore = results.length === SEARCH_PAGE_SIZE;
+      setRelated((prev) => ({
+        ...prev,
+        searchResults: append ? [...prev.searchResults, ...filtered] : filtered,
+        searchOffset: offset + filtered.length,
+        hasMore,
+        isLoadingMore: false,
+      }));
+    },
+    [spaceId, wordId, related.ids],
+  );
+
+  const handleSearchWords = (query: string) => {
     updateRelated('searchQuery', query);
-    if (!query.trim()) {
-      updateRelated('searchResults', []);
-      return;
-    }
-    const results = await WordService.getWordsBySpace(spaceId, { search: query, limit: 10 });
-    const filtered = results.filter((w) => w.id !== wordId && !related.ids.includes(w.id));
-    updateRelated('searchResults', filtered);
+    searchRelatedWords(query, 0, false);
+  };
+
+  const handleLoadMore = () => {
+    if (related.isLoadingMore || !related.hasMore) return;
+    setRelated((prev) => ({ ...prev, isLoadingMore: true }));
+    searchRelatedWords(related.searchQuery, related.searchOffset, true);
   };
 
   const handleAddRelatedWord = (relatedWord: Word) => {
@@ -511,7 +549,7 @@ export function AddWordDialog({
                     value={form.translation}
                     onChange={(e) => updateForm('translation', e.target.value)}
                     placeholder="输入翻译"
-                    className="font-medium mt-1.5"
+                    className="mt-1.5"
                     disabled={isReadOnly}
                   />
                 </div>
@@ -557,7 +595,15 @@ export function AddWordDialog({
                       className="flex-1 min-w-[100px] text-sm bg-transparent outline-none placeholder:text-muted-foreground"
                     />
                     {related.searchResults.length > 0 && (
-                      <div className="absolute z-10 left-0 right-0 top-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto">
+                      <div
+                        className="absolute z-10 left-0 right-0 top-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto"
+                        onScroll={(e) => {
+                          const el = e.currentTarget;
+                          if (el.scrollHeight - el.scrollTop - el.clientHeight < 20) {
+                            handleLoadMore();
+                          }
+                        }}
+                      >
                         {related.searchResults.map((result) => (
                           <button
                             key={result.id}
@@ -573,6 +619,11 @@ export function AddWordDialog({
                             )}
                           </button>
                         ))}
+                        {related.isLoadingMore && (
+                          <div className="flex items-center justify-center py-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

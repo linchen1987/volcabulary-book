@@ -10,6 +10,7 @@ export interface Word {
   spaceId: string;
   content: string;
   description?: string;
+  /** @deprecated Use description field instead. Data should be migrated via settings. */
   translation?: string;
   /** @deprecated Use description field instead for 例句/解释/笔记 */
   usages?: Array<{

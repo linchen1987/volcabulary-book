@@ -53,7 +53,7 @@ import { cn } from '~/lib/utils';
 import { parseSpaceId } from '~/lib/utils/token';
 
 function getTranslationPreview(word: Word): string {
-  return word.translation || '';
+  return word.description || '';
 }
 
 const SORT_OPTIONS: { value: string; label: string }[] = [
@@ -524,7 +524,9 @@ export default function WordListPage() {
                       )}
                     </div>
                     {shouldShowTranslation && translation && (
-                      <p className="text-sm text-muted-foreground truncate mt-1">{translation}</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap mt-1">
+                        {translation}
+                      </p>
                     )}
                     {showLevel && (
                       <div className="mt-3">
@@ -544,7 +546,7 @@ export default function WordListPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
-                    {translation && !showTranslation && (
+                    {word.description && !showTranslation && (
                       <Button
                         variant="ghost"
                         size="icon"

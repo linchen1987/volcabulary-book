@@ -1,7 +1,7 @@
 'use client';
 
 import { useLiveQuery } from 'dexie-react-hooks';
-import { AlertCircle, ArrowRight, Edit2, Loader2, Plus, Save, Trash2, X } from 'lucide-react';
+import { AlertCircle, ArrowRight, Edit2, Loader2, Save, Trash2, X } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -44,7 +44,6 @@ interface UsageItem {
 interface FormState {
   content: string;
   phonetic: string;
-  description: string;
   translation: string;
   usages: UsageItem[];
   level: number;
@@ -77,7 +76,6 @@ const toUsageItems = (word?: Word): UsageItem[] =>
 const createDefaultFormState = (): FormState => ({
   content: '',
   phonetic: '',
-  description: '',
   translation: '',
   usages: [createEmptyUsage()],
   level: 1,
@@ -122,6 +120,13 @@ export function AddWordDialog({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [existingWord, setExistingWord] = useState<Word | null>(null);
+
+  const translationRef = useRef<HTMLTextAreaElement>(null);
+
+  const adjustTextareaHeight = useCallback((el: HTMLTextAreaElement) => {
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
 
   const handleSubmitRef = useRef<(() => void) | null>(null);
   const { syncPush } = useSyncStore();
@@ -171,13 +176,17 @@ export function AddWordDialog({
       setForm({
         content: word.content,
         phonetic: word.phonetic || '',
-        description: word.description || '',
-        translation: word.translation || '',
+        translation: word.description || '',
         usages: toUsageItems(word),
         level: word.level,
       });
+      requestAnimationFrame(() => {
+        if (translationRef.current) {
+          adjustTextareaHeight(translationRef.current);
+        }
+      });
     }
-  }, [word, mode]);
+  }, [word, mode, adjustTextareaHeight]);
 
   useEffect(() => {
     if (wordId && (mode === 'edit' || mode === 'view')) {
@@ -199,24 +208,6 @@ export function AddWordDialog({
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [open, isReadOnly]);
-
-  const handleUsageChange = (usageId: string, field: 'sentence' | 'translation', value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      usages: prev.usages.map((u) => (u.id !== usageId ? u : { ...u, [field]: value })),
-    }));
-  };
-
-  const addUsage = () => {
-    setForm((prev) => ({ ...prev, usages: [...prev.usages, createEmptyUsage()] }));
-  };
-
-  const removeUsage = (id: string) => {
-    setForm((prev) => ({
-      ...prev,
-      usages: prev.usages.length > 1 ? prev.usages.filter((u) => u.id !== id) : prev.usages,
-    }));
-  };
 
   const searchRelatedWords = useCallback(
     async (query: string, offset: number, append: boolean) => {
@@ -297,8 +288,7 @@ export function AddWordDialog({
         await WordService.updateWord(wordId, {
           content: form.content.trim(),
           phonetic: form.phonetic.trim() || undefined,
-          description: form.description.trim() || undefined,
-          translation: form.translation.trim() || undefined,
+          description: form.translation.trim() || undefined,
           usages: filteredUsages.length > 0 ? filteredUsages : undefined,
           level: form.level,
         });
@@ -310,8 +300,7 @@ export function AddWordDialog({
         const newWordId = await WordService.createWord(spaceId, {
           content: form.content.trim(),
           phonetic: form.phonetic.trim() || undefined,
-          description: form.description.trim() || undefined,
-          translation: form.translation.trim() || undefined,
+          description: form.translation.trim() || undefined,
           usages: filteredUsages.length > 0 ? filteredUsages : undefined,
           level: form.level,
         });
@@ -439,17 +428,14 @@ export function AddWordDialog({
                   </div>
                 </div>
 
-                {word?.translation && (
+                {word?.description && (
                   <div>
-                    <Label className="text-muted-foreground text-xs">翻译</Label>
-                    <p className="text-sm leading-relaxed mt-1">{word.translation}</p>
+                    <Label className="text-muted-foreground text-xs">翻译/例句/解释</Label>
+                    <p className="text-sm leading-relaxed mt-1 whitespace-pre-wrap">
+                      {word.description}
+                    </p>
                   </div>
                 )}
-
-                <div>
-                  <Label className="text-muted-foreground text-xs">难度</Label>
-                  <LevelSelector value={word?.level ?? 1} className="mt-3" />
-                </div>
 
                 {related.words.length > 0 && (
                   <div>
@@ -469,14 +455,10 @@ export function AddWordDialog({
                   </div>
                 )}
 
-                {word?.description && (
-                  <div>
-                    <Label className="text-muted-foreground text-xs">例句/解释/笔记</Label>
-                    <p className="text-sm whitespace-pre-wrap leading-relaxed mt-1">
-                      {word.description}
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <Label className="text-muted-foreground text-xs">难度</Label>
+                  <LevelSelector value={word?.level ?? 1} className="mt-3" />
+                </div>
 
                 {renderActionButtons(true)}
               </div>
@@ -524,9 +506,9 @@ export function AddWordDialog({
                               </span>
                             )}
                           </div>
-                          {existingWord.translation && (
+                          {existingWord.description && (
                             <div className="text-xs text-amber-700 dark:text-amber-300 mt-0.5 truncate">
-                              {existingWord.translation}
+                              {existingWord.description}
                             </div>
                           )}
                         </div>
@@ -544,23 +526,18 @@ export function AddWordDialog({
                 </div>
 
                 <div>
-                  <Label className="text-muted-foreground text-xs">翻译</Label>
-                  <Input
+                  <Label className="text-muted-foreground text-xs">翻译/例句/解释</Label>
+                  <Textarea
+                    ref={translationRef}
                     value={form.translation}
-                    onChange={(e) => updateForm('translation', e.target.value)}
-                    placeholder="输入翻译"
-                    className="mt-1.5"
+                    onChange={(e) => {
+                      updateForm('translation', e.target.value);
+                      adjustTextareaHeight(e.target);
+                    }}
+                    placeholder="输入翻译、例句、解释等"
+                    className="mt-1.5 resize-none overflow-hidden"
                     disabled={isReadOnly}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-muted-foreground text-xs">难度</Label>
-                  <LevelSelector
-                    value={form.level}
-                    onChange={(level) => updateForm('level', level)}
-                    disabled={isReadOnly}
-                    className="mt-3"
+                    rows={1}
                   />
                 </div>
 
@@ -630,17 +607,12 @@ export function AddWordDialog({
                 </div>
 
                 <div>
-                  <Label htmlFor="description" className="text-muted-foreground text-xs">
-                    例句/解释/笔记
-                  </Label>
-                  <Textarea
-                    id="description"
-                    value={form.description}
-                    onChange={(e) => updateForm('description', e.target.value)}
-                    placeholder="输入例句、解释、笔记等"
+                  <Label className="text-muted-foreground text-xs">难度</Label>
+                  <LevelSelector
+                    value={form.level}
+                    onChange={(level) => updateForm('level', level)}
                     disabled={isReadOnly}
-                    className="mt-1.5"
-                    rows={5}
+                    className="mt-3"
                   />
                 </div>
 

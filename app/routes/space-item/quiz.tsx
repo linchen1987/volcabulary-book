@@ -39,7 +39,6 @@ type QuizState = 'setup' | 'quiz' | 'result';
 
 function hasTranslationOrUsages(word: Word): boolean {
   return !!(
-    word.translation ||
     word.description ||
     word.usages?.some((u) => u.sentence) ||
     (word.relatedWordIds && word.relatedWordIds.length > 0)
@@ -51,14 +50,12 @@ function getTranslationDisplay(
   allWords?: Word[],
 ): {
   translation?: string;
-  description?: string;
   usages?: Array<{ sentence: string; translation?: string }>;
   relatedWords?: Word[];
 } {
   const relatedWords = allWords?.filter((w) => word.relatedWordIds?.includes(w.id));
   return {
-    translation: word.translation,
-    description: word.description,
+    translation: word.description,
     usages: word.usages,
     relatedWords: relatedWords?.length ? relatedWords : undefined,
   };
@@ -473,22 +470,10 @@ function QuizCard({
                       <div>
                         <h3 className="text-xs sm:text-sm font-semibold text-primary mb-1.5 sm:mb-2 flex items-center gap-1.5 sm:gap-2">
                           <Lightbulb className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          翻译
-                        </h3>
-                        <p className="text-sm sm:text-base text-foreground leading-relaxed">
-                          {display.translation}
-                        </p>
-                      </div>
-                    )}
-
-                    {display.description && (
-                      <div>
-                        <h3 className="text-xs sm:text-sm font-semibold text-primary mb-1.5 sm:mb-2 flex items-center gap-1.5 sm:gap-2">
-                          <BookOpen className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                          介绍
+                          翻译/例句/解释
                         </h3>
                         <p className="text-sm sm:text-base text-foreground leading-relaxed whitespace-pre-wrap">
-                          {display.description}
+                          {display.translation}
                         </p>
                       </div>
                     )}

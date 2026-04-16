@@ -81,7 +81,6 @@ export const WordService = {
       const searchLower = options.search.toLowerCase();
       words = words.filter((w) => {
         if (w.content.toLowerCase().includes(searchLower)) return true;
-        if (w.translation?.toLowerCase().includes(searchLower)) return true;
         if (
           w.usages?.some(
             (u) =>
@@ -142,7 +141,6 @@ export const WordService = {
       const searchLower = options.search.toLowerCase();
       words = words.filter((w) => {
         if (w.content.toLowerCase().includes(searchLower)) return true;
-        if (w.translation?.toLowerCase().includes(searchLower)) return true;
         if (
           w.usages?.some(
             (u) =>
@@ -208,7 +206,6 @@ export const WordService = {
         spaceId,
         content,
         description: data.description,
-        translation: data.translation,
         usages: data.usages,
         level: data.level ?? 1,
         phonetic: data.phonetic,

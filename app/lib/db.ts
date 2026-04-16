@@ -30,6 +30,12 @@ export class VocabBookDatabase extends Dexie {
       syncEvents: 'id, spaceId, createdAt, [spaceId+createdAt]',
     });
 
+    this.version(2).stores({
+      spaces: 'id, name, createdAt, updatedAt',
+      words: 'id, spaceId, content, level, createdAt, updatedAt, [spaceId+updatedAt]',
+      syncEvents: 'id, spaceId, createdAt, [spaceId+createdAt]',
+    });
+
     initSyncTracker(this);
   }
 }

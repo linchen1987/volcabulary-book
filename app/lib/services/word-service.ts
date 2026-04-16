@@ -1,12 +1,14 @@
 import { db, generateId } from '~/lib/db';
 import type { Space, Word } from '~/lib/types';
 import { addRelation, cleanupRelationsOnDelete, removeRelation } from './related-words';
+import { countBaseWords } from './word-family';
 
 export interface WordStats {
   total: number;
   words: number;
   phrases: number;
   byLevel: Record<number, number>;
+  baseWordCount: number;
 }
 
 export type SortField = 'createdAt' | 'updatedAt' | 'level' | 'content';
@@ -69,12 +71,28 @@ export const WordService = {
       sortOrder?: SortOrder;
       levelFilter?: number;
       search?: string;
+      baseWordFilter?: 'all' | 'base' | 'non-base' | 'unset';
+      typeFilter?: 'all' | 'word' | 'phrase';
     },
   ): Promise<Word[]> {
     let words = await db.words.where('spaceId').equals(spaceId).toArray();
 
     if (options?.levelFilter !== undefined) {
       words = words.filter((w) => w.level === options.levelFilter);
+    }
+
+    if (options?.baseWordFilter === 'base') {
+      words = words.filter((w) => w.baseWordId === w.id);
+    } else if (options?.baseWordFilter === 'non-base') {
+      words = words.filter((w) => w.baseWordId != null && w.baseWordId !== w.id);
+    } else if (options?.baseWordFilter === 'unset') {
+      words = words.filter((w) => w.baseWordId == null);
+    }
+
+    if (options?.typeFilter === 'word') {
+      words = words.filter((w) => !w.content.includes(' '));
+    } else if (options?.typeFilter === 'phrase') {
+      words = words.filter((w) => w.content.includes(' '));
     }
 
     if (options?.search) {
@@ -129,12 +147,28 @@ export const WordService = {
     options?: {
       levelFilter?: number;
       search?: string;
+      baseWordFilter?: 'all' | 'base' | 'non-base' | 'unset';
+      typeFilter?: 'all' | 'word' | 'phrase';
     },
   ): Promise<number> {
     let words = await db.words.where('spaceId').equals(spaceId).toArray();
 
     if (options?.levelFilter !== undefined) {
       words = words.filter((w) => w.level === options.levelFilter);
+    }
+
+    if (options?.baseWordFilter === 'base') {
+      words = words.filter((w) => w.baseWordId === w.id);
+    } else if (options?.baseWordFilter === 'non-base') {
+      words = words.filter((w) => w.baseWordId != null && w.baseWordId !== w.id);
+    } else if (options?.baseWordFilter === 'unset') {
+      words = words.filter((w) => w.baseWordId == null);
+    }
+
+    if (options?.typeFilter === 'word') {
+      words = words.filter((w) => !w.content.includes(' '));
+    } else if (options?.typeFilter === 'phrase') {
+      words = words.filter((w) => w.content.includes(' '));
     }
 
     if (options?.search) {
@@ -173,6 +207,7 @@ export const WordService = {
       words: wordCount,
       phrases: phraseCount,
       byLevel,
+      baseWordCount: countBaseWords(words),
     };
   },
 
@@ -241,7 +276,20 @@ export const WordService = {
   async deleteWord(id: string): Promise<void> {
     await db.transaction('rw', [db.words, db.syncEvents], async () => {
       const word = await db.words.get(id);
-      if (word?.relatedWordIds?.length) {
+      if (!word) return;
+
+      if (word.baseWordId === id) {
+        const derived = await db.words
+          .where('spaceId')
+          .equals(word.spaceId)
+          .filter((w) => w.baseWordId === id && w.id !== id)
+          .toArray();
+        for (const d of derived) {
+          await db.words.update(d.id, { baseWordId: undefined, updatedAt: Date.now() });
+        }
+      }
+
+      if (word.relatedWordIds?.length) {
         const relatedWords = await db.words.where('id').anyOf(word.relatedWordIds).toArray();
         const cleanups = cleanupRelationsOnDelete(word, relatedWords);
         await Promise.all(cleanups.map((c) => db.words.update(c.id, c.update)));
@@ -358,5 +406,41 @@ export const WordService = {
       const existingTokens = splitContent(word.content);
       return newTokens.some((nt) => existingTokens.includes(nt));
     });
+  },
+
+  async setBaseWordId(
+    wordId: string,
+    baseWordId: string | undefined,
+    spaceId: string,
+  ): Promise<void> {
+    await db.transaction('rw', [db.words, db.syncEvents], async () => {
+      const word = await db.words.get(wordId);
+      if (!word) throw new Error('单词不存在');
+
+      if (baseWordId === undefined) {
+        await db.words.update(wordId, { baseWordId: undefined, updatedAt: Date.now() });
+        return;
+      }
+
+      if (baseWordId === wordId) {
+        await db.words.update(wordId, { baseWordId: wordId, updatedAt: Date.now() });
+        return;
+      }
+
+      const targetWord = await db.words.get(baseWordId);
+      if (!targetWord) throw new Error('目标词不存在');
+      if (targetWord.spaceId !== spaceId) throw new Error('目标词不在同一空间');
+
+      if (targetWord.baseWordId !== targetWord.id) {
+        await db.words.update(baseWordId, { baseWordId: baseWordId, updatedAt: Date.now() });
+      }
+
+      await db.words.update(wordId, { baseWordId, updatedAt: Date.now() });
+    });
+  },
+
+  async getDerivedWords(baseWordId: string, spaceId: string): Promise<Word[]> {
+    const words = await db.words.where('spaceId').equals(spaceId).toArray();
+    return words.filter((w) => w.baseWordId === baseWordId && w.id !== baseWordId);
   },
 };

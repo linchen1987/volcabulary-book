@@ -29,9 +29,11 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
 import { useSpaceAutoSync } from '~/hooks/use-space-auto-sync';
+import { SELF_BASE_WORD_ID } from '~/lib/constants';
 import { WordService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
 import type { Word } from '~/lib/types';
+import { cn } from '~/lib/utils';
 
 type Mode = 'add' | 'edit' | 'view';
 
@@ -55,6 +57,17 @@ interface RelatedWordsState {
   words: Word[];
   ids: string[];
   originalIds: string[];
+  searchQuery: string;
+  searchResults: Word[];
+  searchOffset: number;
+  hasMore: boolean;
+  isLoadingMore: boolean;
+}
+
+interface BaseWordState {
+  word: Word | null;
+  wordId: string | undefined;
+  originalWordId: string | undefined;
   searchQuery: string;
   searchResults: Word[];
   searchOffset: number;
@@ -92,6 +105,17 @@ const createDefaultRelatedState = (): RelatedWordsState => ({
   isLoadingMore: false,
 });
 
+const createDefaultBaseWordState = (): BaseWordState => ({
+  word: null,
+  wordId: undefined,
+  originalWordId: undefined,
+  searchQuery: '',
+  searchResults: [],
+  searchOffset: 0,
+  hasMore: false,
+  isLoadingMore: false,
+});
+
 interface AddWordDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -116,6 +140,7 @@ export function AddWordDialog({
 
   const [form, setForm] = useState<FormState>(createDefaultFormState);
   const [related, setRelated] = useState<RelatedWordsState>(createDefaultRelatedState);
+  const [baseWordState, setBaseWordState] = useState<BaseWordState>(createDefaultBaseWordState);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -137,6 +162,7 @@ export function AddWordDialog({
   const resetForm = useCallback(() => {
     setForm(createDefaultFormState());
     setRelated(createDefaultRelatedState());
+    setBaseWordState(createDefaultBaseWordState());
     setCurrentMode('add');
     setExistingWord(null);
   }, []);
@@ -192,10 +218,46 @@ export function AddWordDialog({
     if (wordId && (mode === 'edit' || mode === 'view')) {
       WordService.getRelatedWords(wordId).then((words) => {
         const ids = words.map((w) => w.id);
-        setRelated({ words, ids, originalIds: ids, searchQuery: '', searchResults: [] });
+        setRelated({
+          words,
+          ids,
+          originalIds: ids,
+          searchQuery: '',
+          searchResults: [],
+          searchOffset: 0,
+          hasMore: false,
+          isLoadingMore: false,
+        });
       });
     }
   }, [wordId, mode]);
+
+  useEffect(() => {
+    if (!word || mode === 'add') return;
+    if (mode !== 'edit' && mode !== 'view') return;
+
+    if (word.baseWordId !== undefined) {
+      if (word.baseWordId === word.id) {
+        setBaseWordState((prev) => ({
+          ...prev,
+          word: word,
+          wordId: word.id,
+          originalWordId: word.id,
+        }));
+      } else {
+        WordService.getWord(word.baseWordId).then((bw) => {
+          if (bw) {
+            setBaseWordState((prev) => ({
+              ...prev,
+              word: bw,
+              wordId: bw.id,
+              originalWordId: bw.id,
+            }));
+          }
+        });
+      }
+    }
+  }, [word, mode]);
 
   useEffect(() => {
     if (!open) return;
@@ -269,6 +331,70 @@ export function AddWordDialog({
     }));
   };
 
+  const searchBaseWords = useCallback(
+    async (query: string, offset: number, append: boolean) => {
+      if (!query.trim()) {
+        setBaseWordState((prev) => ({
+          ...prev,
+          searchResults: [],
+          searchOffset: 0,
+          hasMore: false,
+          isLoadingMore: false,
+        }));
+        return;
+      }
+      const results = await WordService.getWordsBySpace(spaceId, {
+        search: query,
+        limit: SEARCH_PAGE_SIZE,
+        offset,
+      });
+      const hasMore = results.length === SEARCH_PAGE_SIZE;
+      setBaseWordState((prev) => ({
+        ...prev,
+        searchResults: append ? [...prev.searchResults, ...results] : results,
+        searchOffset: offset + results.length,
+        hasMore,
+        isLoadingMore: false,
+      }));
+    },
+    [spaceId],
+  );
+
+  const handleSearchBaseWords = (query: string) => {
+    setBaseWordState((prev) => ({ ...prev, searchQuery: query }));
+    searchBaseWords(query, 0, false);
+  };
+
+  const handleLoadMoreBaseWords = () => {
+    if (baseWordState.isLoadingMore || !baseWordState.hasMore) return;
+    setBaseWordState((prev) => ({ ...prev, isLoadingMore: true }));
+    searchBaseWords(baseWordState.searchQuery, baseWordState.searchOffset, true);
+  };
+
+  const handleSelectBaseWord = (selectedWord: Word) => {
+    const isSelf = wordId ? selectedWord.id === wordId : false;
+    setBaseWordState({
+      word: isSelf ? null : selectedWord,
+      wordId: isSelf ? wordId || SELF_BASE_WORD_ID : selectedWord.id,
+      originalWordId: baseWordState.originalWordId,
+      searchQuery: '',
+      searchResults: [],
+      searchOffset: 0,
+      hasMore: false,
+      isLoadingMore: false,
+    });
+  };
+
+  const handleClearBaseWord = () => {
+    setBaseWordState((prev) => ({
+      ...prev,
+      word: null,
+      wordId: undefined,
+      searchQuery: '',
+      searchResults: [],
+    }));
+  };
+
   const handleSubmit = useCallback(async () => {
     if (!form.content.trim()) {
       toast.error('请输入单词内容');
@@ -293,7 +419,25 @@ export function AddWordDialog({
           level: form.level,
         });
 
-        await WordService.batchUpdateRelations(wordId, related.ids, related.originalIds);
+        const effectiveEditRelatedIds = (() => {
+          const bwId = baseWordState.wordId;
+          const isSelf = bwId === wordId || bwId === SELF_BASE_WORD_ID;
+          if (bwId && !isSelf && !related.ids.includes(bwId)) {
+            return [...related.ids, bwId];
+          }
+          return related.ids;
+        })();
+
+        await WordService.batchUpdateRelations(
+          wordId,
+          effectiveEditRelatedIds,
+          related.originalIds,
+        );
+
+        const baseChanged = baseWordState.wordId !== baseWordState.originalWordId;
+        if (baseChanged) {
+          await WordService.setBaseWordId(wordId, baseWordState.wordId, spaceId);
+        }
 
         toast.success('保存成功');
       } else {
@@ -305,7 +449,28 @@ export function AddWordDialog({
           level: form.level,
         });
 
-        await Promise.all(related.ids.map((id) => WordService.addRelatedWord(newWordId, id)));
+        const effectiveAddRelatedIds = (() => {
+          const bwId = baseWordState.wordId;
+          const isSelf = bwId === newWordId || bwId === SELF_BASE_WORD_ID;
+          if (bwId && !isSelf && !related.ids.includes(bwId)) {
+            return [...related.ids, bwId];
+          }
+          return related.ids;
+        })();
+
+        await Promise.all(
+          effectiveAddRelatedIds.map((id) => WordService.addRelatedWord(newWordId, id)),
+        );
+
+        if (baseWordState.wordId) {
+          const isSelf =
+            baseWordState.wordId === newWordId || baseWordState.wordId === SELF_BASE_WORD_ID;
+          if (isSelf) {
+            await WordService.setBaseWordId(newWordId, newWordId, spaceId);
+          } else if (baseWordState.word) {
+            await WordService.setBaseWordId(newWordId, baseWordState.word.id, spaceId);
+          }
+        }
 
         toast.success('单词添加成功');
         resetForm();
@@ -328,6 +493,7 @@ export function AddWordDialog({
   }, [
     form,
     related,
+    baseWordState,
     currentMode,
     wordId,
     resetForm,
@@ -451,6 +617,27 @@ export function AddWordDialog({
                           {rw.content}
                         </button>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {word?.baseWordId !== undefined && (
+                  <div>
+                    <Label className="text-muted-foreground text-xs">词族</Label>
+                    <div className="mt-1.5">
+                      {word.baseWordId === word.id ? (
+                        <span className="px-2.5 py-1 text-sm bg-primary/10 rounded-full">
+                          {word.content} (词族)
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => onNavigateToWord?.(word.baseWordId!, 'view')}
+                          className="px-2.5 py-1 text-sm bg-primary/10 rounded-full hover:bg-primary/20 transition-colors"
+                        >
+                          {baseWordState.word?.content || '...'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -597,6 +784,110 @@ export function AddWordDialog({
                           </button>
                         ))}
                         {related.isLoadingMore && (
+                          <div className="flex items-center justify-center py-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Label className="text-muted-foreground text-xs">词族</Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isSelf = wordId
+                          ? baseWordState.wordId === wordId
+                          : baseWordState.wordId === SELF_BASE_WORD_ID;
+                        if (isSelf) {
+                          handleClearBaseWord();
+                        } else {
+                          setBaseWordState((prev) => ({
+                            ...prev,
+                            word: null,
+                            wordId: wordId || SELF_BASE_WORD_ID,
+                            searchQuery: '',
+                            searchResults: [],
+                          }));
+                        }
+                      }}
+                      className={cn(
+                        'text-xs px-1.5 py-0.5 rounded transition-colors',
+                        wordId
+                          ? baseWordState.wordId === wordId
+                          : baseWordState.wordId === SELF_BASE_WORD_ID
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:text-foreground hover:bg-muted',
+                      )}
+                    >
+                      标记自身
+                    </button>
+                  </div>
+                  <div className="relative flex flex-wrap items-center gap-1.5 p-2 border rounded-md min-h-[40px] mt-1.5">
+                    {baseWordState.wordId && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-primary/10 rounded-full">
+                        <span>
+                          {wordId
+                            ? baseWordState.wordId === wordId
+                              ? `${form.content || '自身'} (标记为词族)`
+                              : baseWordState.word?.content || '...'
+                            : baseWordState.wordId === SELF_BASE_WORD_ID
+                              ? `${form.content || '自身'} (标记为词族)`
+                              : baseWordState.word?.content || '...'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={handleClearBaseWord}
+                          className="inline-flex items-center justify-center w-4 h-4 rounded-full hover:bg-primary/30"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </span>
+                    )}
+                    <input
+                      value={baseWordState.searchQuery}
+                      onChange={(e) => handleSearchBaseWords(e.target.value)}
+                      placeholder={baseWordState.wordId ? '' : '搜索单词设置词族...'}
+                      className="flex-1 min-w-[100px] text-sm bg-transparent outline-none placeholder:text-muted-foreground"
+                    />
+                    {baseWordState.searchResults.length > 0 && (
+                      <div
+                        className="absolute z-10 left-0 right-0 top-full mt-1 bg-background border rounded-md shadow-lg max-h-60 overflow-auto"
+                        onScroll={(e) => {
+                          const el = e.currentTarget;
+                          if (el.scrollHeight - el.scrollTop - el.clientHeight < 20) {
+                            handleLoadMoreBaseWords();
+                          }
+                        }}
+                      >
+                        {baseWordState.searchResults.map((result) => {
+                          const isSelf = result.id === wordId;
+                          return (
+                            <button
+                              key={result.id}
+                              type="button"
+                              onClick={() => handleSelectBaseWord(result)}
+                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                            >
+                              <span className="font-medium">{result.content}</span>
+                              {result.phonetic && (
+                                <span className="text-muted-foreground text-xs">
+                                  {result.phonetic}
+                                </span>
+                              )}
+                              {isSelf && wordId && (
+                                <span className="text-xs text-muted-foreground">(标记为词族)</span>
+                              )}
+                              {result.baseWordId === result.id && (
+                                <span className="text-xs text-primary/60">(词族)</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {baseWordState.isLoadingMore && (
                           <div className="flex items-center justify-center py-2">
                             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                           </div>

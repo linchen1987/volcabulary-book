@@ -179,6 +179,10 @@ export function Sidebar({ spaceId, isPWA, onClose, className }: SidebarProps) {
                     <span className="text-muted-foreground">词组</span>
                     <span className="font-semibold">{stats.phrases}</span>
                   </div>
+                  <div className="flex items-center justify-between text-sm px-1">
+                    <span className="text-muted-foreground">词族</span>
+                    <span className="font-semibold">{stats.baseWordCount}</span>
+                  </div>
                   {Object.keys(stats.byLevel)
                     .map(Number)
                     .sort((a, b) => a - b)

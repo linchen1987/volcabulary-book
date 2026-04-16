@@ -21,6 +21,7 @@ export interface Word {
   phonetic?: string;
   audioUrl?: string;
   relatedWordIds?: string[];
+  baseWordId?: string;
   createdAt: number;
   updatedAt: number;
 }

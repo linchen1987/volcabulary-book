@@ -1,7 +1,7 @@
 import { db, generateId } from '~/lib/db';
 import type { Space, Word } from '~/lib/types';
 import { addRelation, cleanupRelationsOnDelete, removeRelation } from './related-words';
-import { countBaseWords } from './word-family';
+import { countBaseWords, isBaseWord } from './word-family';
 
 export interface WordStats {
   total: number;
@@ -71,8 +71,7 @@ export const WordService = {
       sortOrder?: SortOrder;
       levelFilter?: number;
       search?: string;
-      baseWordFilter?: 'all' | 'base' | 'non-base' | 'unset';
-      typeFilter?: 'all' | 'word' | 'phrase';
+      typeFilter?: 'all' | 'word' | 'phrase' | 'base-word';
     },
   ): Promise<Word[]> {
     let words = await db.words.where('spaceId').equals(spaceId).toArray();
@@ -81,18 +80,12 @@ export const WordService = {
       words = words.filter((w) => w.level === options.levelFilter);
     }
 
-    if (options?.baseWordFilter === 'base') {
-      words = words.filter((w) => w.baseWordId === w.id);
-    } else if (options?.baseWordFilter === 'non-base') {
-      words = words.filter((w) => w.baseWordId != null && w.baseWordId !== w.id);
-    } else if (options?.baseWordFilter === 'unset') {
-      words = words.filter((w) => w.baseWordId == null);
-    }
-
     if (options?.typeFilter === 'word') {
       words = words.filter((w) => !w.content.includes(' '));
     } else if (options?.typeFilter === 'phrase') {
       words = words.filter((w) => w.content.includes(' '));
+    } else if (options?.typeFilter === 'base-word') {
+      words = words.filter((w) => isBaseWord(w));
     }
 
     if (options?.search) {
@@ -147,8 +140,7 @@ export const WordService = {
     options?: {
       levelFilter?: number;
       search?: string;
-      baseWordFilter?: 'all' | 'base' | 'non-base' | 'unset';
-      typeFilter?: 'all' | 'word' | 'phrase';
+      typeFilter?: 'all' | 'word' | 'phrase' | 'base-word';
     },
   ): Promise<number> {
     let words = await db.words.where('spaceId').equals(spaceId).toArray();
@@ -157,18 +149,12 @@ export const WordService = {
       words = words.filter((w) => w.level === options.levelFilter);
     }
 
-    if (options?.baseWordFilter === 'base') {
-      words = words.filter((w) => w.baseWordId === w.id);
-    } else if (options?.baseWordFilter === 'non-base') {
-      words = words.filter((w) => w.baseWordId != null && w.baseWordId !== w.id);
-    } else if (options?.baseWordFilter === 'unset') {
-      words = words.filter((w) => w.baseWordId == null);
-    }
-
     if (options?.typeFilter === 'word') {
       words = words.filter((w) => !w.content.includes(' '));
     } else if (options?.typeFilter === 'phrase') {
       words = words.filter((w) => w.content.includes(' '));
+    } else if (options?.typeFilter === 'base-word') {
+      words = words.filter((w) => isBaseWord(w));
     }
 
     if (options?.search) {
@@ -417,23 +403,14 @@ export const WordService = {
       const word = await db.words.get(wordId);
       if (!word) throw new Error('单词不存在');
 
-      if (baseWordId === undefined) {
+      if (!baseWordId || baseWordId === wordId) {
         await db.words.update(wordId, { baseWordId: undefined, updatedAt: Date.now() });
-        return;
-      }
-
-      if (baseWordId === wordId) {
-        await db.words.update(wordId, { baseWordId: wordId, updatedAt: Date.now() });
         return;
       }
 
       const targetWord = await db.words.get(baseWordId);
       if (!targetWord) throw new Error('目标词不存在');
       if (targetWord.spaceId !== spaceId) throw new Error('目标词不在同一空间');
-
-      if (targetWord.baseWordId !== targetWord.id) {
-        await db.words.update(baseWordId, { baseWordId: baseWordId, updatedAt: Date.now() });
-      }
 
       await db.words.update(wordId, { baseWordId, updatedAt: Date.now() });
     });

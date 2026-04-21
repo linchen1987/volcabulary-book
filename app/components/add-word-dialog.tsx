@@ -29,11 +29,9 @@ import { Input } from '~/components/ui/input';
 import { Label } from '~/components/ui/label';
 import { Textarea } from '~/components/ui/textarea';
 import { useSpaceAutoSync } from '~/hooks/use-space-auto-sync';
-import { SELF_BASE_WORD_ID } from '~/lib/constants';
 import { WordService } from '~/lib/services/word-service';
 import { useSyncStore } from '~/lib/stores/sync-store';
 import type { Word } from '~/lib/types';
-import { cn } from '~/lib/utils';
 
 type Mode = 'add' | 'edit' | 'view';
 
@@ -236,26 +234,17 @@ export function AddWordDialog({
     if (!word || mode === 'add') return;
     if (mode !== 'edit' && mode !== 'view') return;
 
-    if (word.baseWordId !== undefined) {
-      if (word.baseWordId === word.id) {
-        setBaseWordState((prev) => ({
-          ...prev,
-          word: word,
-          wordId: word.id,
-          originalWordId: word.id,
-        }));
-      } else {
-        WordService.getWord(word.baseWordId).then((bw) => {
-          if (bw) {
-            setBaseWordState((prev) => ({
-              ...prev,
-              word: bw,
-              wordId: bw.id,
-              originalWordId: bw.id,
-            }));
-          }
-        });
-      }
+    if (word.baseWordId !== undefined && word.baseWordId !== word.id) {
+      WordService.getWord(word.baseWordId).then((bw) => {
+        if (bw) {
+          setBaseWordState((prev) => ({
+            ...prev,
+            word: bw,
+            wordId: bw.id,
+            originalWordId: bw.id,
+          }));
+        }
+      });
     }
   }, [word, mode]);
 
@@ -348,16 +337,17 @@ export function AddWordDialog({
         limit: SEARCH_PAGE_SIZE,
         offset,
       });
+      const filtered = results.filter((w) => w.id !== wordId);
       const hasMore = results.length === SEARCH_PAGE_SIZE;
       setBaseWordState((prev) => ({
         ...prev,
-        searchResults: append ? [...prev.searchResults, ...results] : results,
-        searchOffset: offset + results.length,
+        searchResults: append ? [...prev.searchResults, ...filtered] : filtered,
+        searchOffset: offset + filtered.length,
         hasMore,
         isLoadingMore: false,
       }));
     },
-    [spaceId],
+    [spaceId, wordId],
   );
 
   const handleSearchBaseWords = (query: string) => {
@@ -372,17 +362,16 @@ export function AddWordDialog({
   };
 
   const handleSelectBaseWord = (selectedWord: Word) => {
-    const isSelf = wordId ? selectedWord.id === wordId : false;
-    setBaseWordState({
-      word: isSelf ? null : selectedWord,
-      wordId: isSelf ? wordId || SELF_BASE_WORD_ID : selectedWord.id,
-      originalWordId: baseWordState.originalWordId,
+    setBaseWordState((prev) => ({
+      ...prev,
+      word: selectedWord,
+      wordId: selectedWord.id,
       searchQuery: '',
       searchResults: [],
       searchOffset: 0,
       hasMore: false,
       isLoadingMore: false,
-    });
+    }));
   };
 
   const handleClearBaseWord = () => {
@@ -419,14 +408,10 @@ export function AddWordDialog({
           level: form.level,
         });
 
-        const effectiveEditRelatedIds = (() => {
-          const bwId = baseWordState.wordId;
-          const isSelf = bwId === wordId || bwId === SELF_BASE_WORD_ID;
-          if (bwId && !isSelf && !related.ids.includes(bwId)) {
-            return [...related.ids, bwId];
-          }
-          return related.ids;
-        })();
+        const effectiveEditRelatedIds =
+          baseWordState.wordId && !related.ids.includes(baseWordState.wordId)
+            ? [...related.ids, baseWordState.wordId]
+            : related.ids;
 
         await WordService.batchUpdateRelations(
           wordId,
@@ -449,27 +434,17 @@ export function AddWordDialog({
           level: form.level,
         });
 
-        const effectiveAddRelatedIds = (() => {
-          const bwId = baseWordState.wordId;
-          const isSelf = bwId === newWordId || bwId === SELF_BASE_WORD_ID;
-          if (bwId && !isSelf && !related.ids.includes(bwId)) {
-            return [...related.ids, bwId];
-          }
-          return related.ids;
-        })();
+        const effectiveAddRelatedIds =
+          baseWordState.wordId && !related.ids.includes(baseWordState.wordId)
+            ? [...related.ids, baseWordState.wordId]
+            : related.ids;
 
         await Promise.all(
           effectiveAddRelatedIds.map((id) => WordService.addRelatedWord(newWordId, id)),
         );
 
         if (baseWordState.wordId) {
-          const isSelf =
-            baseWordState.wordId === newWordId || baseWordState.wordId === SELF_BASE_WORD_ID;
-          if (isSelf) {
-            await WordService.setBaseWordId(newWordId, newWordId, spaceId);
-          } else if (baseWordState.word) {
-            await WordService.setBaseWordId(newWordId, baseWordState.word.id, spaceId);
-          }
+          await WordService.setBaseWordId(newWordId, baseWordState.wordId, spaceId);
         }
 
         toast.success('单词添加成功');
@@ -621,23 +596,21 @@ export function AddWordDialog({
                   </div>
                 )}
 
-                {word?.baseWordId !== undefined && (
+                {word?.baseWordId && word.baseWordId !== word.id && (
                   <div>
                     <Label className="text-muted-foreground text-xs">词族</Label>
                     <div className="mt-1.5">
-                      {word.baseWordId === word.id ? (
-                        <span className="px-2.5 py-1 text-sm bg-primary/10 rounded-full">
-                          {word.content} (词族)
-                        </span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => onNavigateToWord?.(word.baseWordId!, 'view')}
-                          className="px-2.5 py-1 text-sm bg-primary/10 rounded-full hover:bg-primary/20 transition-colors"
-                        >
-                          {baseWordState.word?.content || '...'}
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (word?.baseWordId) {
+                            onNavigateToWord?.(word.baseWordId, 'view');
+                          }
+                        }}
+                        className="px-2.5 py-1 text-sm bg-primary/10 rounded-full hover:bg-primary/20 transition-colors"
+                      >
+                        {baseWordState.word?.content || '...'}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -794,50 +767,11 @@ export function AddWordDialog({
                 </div>
 
                 <div>
-                  <div className="flex items-center gap-2">
-                    <Label className="text-muted-foreground text-xs">词族</Label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const isSelf = wordId
-                          ? baseWordState.wordId === wordId
-                          : baseWordState.wordId === SELF_BASE_WORD_ID;
-                        if (isSelf) {
-                          handleClearBaseWord();
-                        } else {
-                          setBaseWordState((prev) => ({
-                            ...prev,
-                            word: null,
-                            wordId: wordId || SELF_BASE_WORD_ID,
-                            searchQuery: '',
-                            searchResults: [],
-                          }));
-                        }
-                      }}
-                      className={cn(
-                        'text-xs px-1.5 py-0.5 rounded transition-colors',
-                        wordId
-                          ? baseWordState.wordId === wordId
-                          : baseWordState.wordId === SELF_BASE_WORD_ID
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-muted-foreground hover:text-foreground hover:bg-muted',
-                      )}
-                    >
-                      标记自身
-                    </button>
-                  </div>
+                  <Label className="text-muted-foreground text-xs">词族</Label>
                   <div className="relative flex flex-wrap items-center gap-1.5 p-2 border rounded-md min-h-[40px] mt-1.5">
-                    {baseWordState.wordId && (
+                    {baseWordState.word && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 text-sm bg-primary/10 rounded-full">
-                        <span>
-                          {wordId
-                            ? baseWordState.wordId === wordId
-                              ? `${form.content || '自身'} (标记为词族)`
-                              : baseWordState.word?.content || '...'
-                            : baseWordState.wordId === SELF_BASE_WORD_ID
-                              ? `${form.content || '自身'} (标记为词族)`
-                              : baseWordState.word?.content || '...'}
-                        </span>
+                        <span>{baseWordState.word.content}</span>
                         <button
                           type="button"
                           onClick={handleClearBaseWord}
@@ -850,7 +784,7 @@ export function AddWordDialog({
                     <input
                       value={baseWordState.searchQuery}
                       onChange={(e) => handleSearchBaseWords(e.target.value)}
-                      placeholder={baseWordState.wordId ? '' : '搜索单词设置词族...'}
+                      placeholder={baseWordState.word ? '' : '搜索单词设置词族...'}
                       className="flex-1 min-w-[100px] text-sm bg-transparent outline-none placeholder:text-muted-foreground"
                     />
                     {baseWordState.searchResults.length > 0 && (
@@ -863,30 +797,21 @@ export function AddWordDialog({
                           }
                         }}
                       >
-                        {baseWordState.searchResults.map((result) => {
-                          const isSelf = result.id === wordId;
-                          return (
-                            <button
-                              key={result.id}
-                              type="button"
-                              onClick={() => handleSelectBaseWord(result)}
-                              className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
-                            >
-                              <span className="font-medium">{result.content}</span>
-                              {result.phonetic && (
-                                <span className="text-muted-foreground text-xs">
-                                  {result.phonetic}
-                                </span>
-                              )}
-                              {isSelf && wordId && (
-                                <span className="text-xs text-muted-foreground">(标记为词族)</span>
-                              )}
-                              {result.baseWordId === result.id && (
-                                <span className="text-xs text-primary/60">(词族)</span>
-                              )}
-                            </button>
-                          );
-                        })}
+                        {baseWordState.searchResults.map((result) => (
+                          <button
+                            key={result.id}
+                            type="button"
+                            onClick={() => handleSelectBaseWord(result)}
+                            className="w-full px-3 py-2 text-left text-sm hover:bg-muted flex items-center gap-2"
+                          >
+                            <span className="font-medium">{result.content}</span>
+                            {result.phonetic && (
+                              <span className="text-muted-foreground text-xs">
+                                {result.phonetic}
+                              </span>
+                            )}
+                          </button>
+                        ))}
                         {baseWordState.isLoadingMore && (
                           <div className="flex items-center justify-center py-2">
                             <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />

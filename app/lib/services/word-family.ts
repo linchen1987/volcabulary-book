@@ -1,15 +1,15 @@
 import type { Word } from '~/lib/types';
 
+export function isSingleWord(content: string): boolean {
+  return /^[a-zA-Z]+$/.test(content);
+}
+
 export function isBaseWord(word: Word): boolean {
-  return word.baseWordId === word.id;
+  return isSingleWord(word.content) && !isDerivedWord(word);
 }
 
 export function isDerivedWord(word: Word): boolean {
   return word.baseWordId !== undefined && word.baseWordId !== word.id;
-}
-
-export function filterBaseWords(words: Word[]): Word[] {
-  return words.filter((w) => isBaseWord(w));
 }
 
 export function countBaseWords(words: Word[]): number {

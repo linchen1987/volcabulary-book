@@ -6,7 +6,6 @@ interface ListViewConfig {
   showTranslation: boolean;
   showLevel: boolean;
   showRelatedWords: boolean;
-  showWordFamily: boolean;
 }
 
 const DEFAULT_CONFIG: ListViewConfig = {
@@ -14,7 +13,6 @@ const DEFAULT_CONFIG: ListViewConfig = {
   showTranslation: false,
   showLevel: false,
   showRelatedWords: false,
-  showWordFamily: false,
 };
 
 function readConfig(): ListViewConfig {
@@ -53,7 +51,5 @@ export function useListViewConfig() {
     setShowLevel: (showLevel: boolean) => update({ showLevel }),
     showRelatedWords: config.showRelatedWords,
     setShowRelatedWords: (showRelatedWords: boolean) => update({ showRelatedWords }),
-    showWordFamily: config.showWordFamily,
-    setShowWordFamily: (showWordFamily: boolean) => update({ showWordFamily }),
   } as const;
 }

@@ -3,11 +3,13 @@ import { STORAGE_KEYS } from '~/lib/constants';
 
 interface QuizConfig {
   selectedLevel: number | 'all';
+  typeFilter: 'all' | 'word' | 'phrase' | 'base-word';
   quizCount: number;
 }
 
 const DEFAULT_CONFIG: QuizConfig = {
   selectedLevel: 'all',
+  typeFilter: 'all',
   quizCount: 10,
 };
 
@@ -41,6 +43,8 @@ export function useQuizConfig() {
   return {
     selectedLevel: config.selectedLevel,
     setSelectedLevel: (selectedLevel: number | 'all') => update({ selectedLevel }),
+    typeFilter: config.typeFilter,
+    setTypeFilter: (typeFilter: 'all' | 'word' | 'phrase' | 'base-word') => update({ typeFilter }),
     quizCount: config.quizCount,
     setQuizCount: (quizCount: number) => update({ quizCount }),
   } as const;

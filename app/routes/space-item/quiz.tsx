@@ -29,6 +29,7 @@ import { Card, CardContent } from '~/components/ui/card';
 import { Input } from '~/components/ui/input';
 import { Progress } from '~/components/ui/progress';
 import { useQuizConfig } from '~/hooks/use-quiz-config';
+import { isBaseWord } from '~/lib/services/word-family';
 import type { WordStats } from '~/lib/services/word-service';
 import { SpaceService, WordService } from '~/lib/services/word-service';
 import type { Word } from '~/lib/types';
@@ -75,7 +76,8 @@ export default function QuizPage() {
   const allWords = useLiveQuery(() => WordService.getWordsBySpace(spaceId), [spaceId]);
 
   const [quizState, setQuizState] = useState<QuizState>('setup');
-  const { selectedLevel, setSelectedLevel, quizCount, setQuizCount } = useQuizConfig();
+  const { selectedLevel, setSelectedLevel, typeFilter, setTypeFilter, quizCount, setQuizCount } =
+    useQuizConfig();
   const [quizWords, setQuizWords] = useState<QuizWord[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -85,10 +87,20 @@ export default function QuizPage() {
   const currentQuizWord = quizWords[currentIndex];
 
   const availableCount = useMemo(() => {
-    if (!stats) return 0;
-    if (selectedLevel === 'all') return stats.total;
-    return stats.byLevel[selectedLevel] || 0;
-  }, [stats, selectedLevel]);
+    if (!allWords) return 0;
+    let filtered = allWords;
+    if (selectedLevel !== 'all') {
+      filtered = filtered.filter((w) => w.level === selectedLevel);
+    }
+    if (typeFilter === 'word') {
+      filtered = filtered.filter((w) => !w.content.includes(' '));
+    } else if (typeFilter === 'phrase') {
+      filtered = filtered.filter((w) => w.content.includes(' '));
+    } else if (typeFilter === 'base-word') {
+      filtered = filtered.filter((w) => isBaseWord(w));
+    }
+    return filtered.length;
+  }, [allWords, selectedLevel, typeFilter]);
 
   useEffect(() => {
     if (quizCount > availableCount && availableCount > 0) {
@@ -105,6 +117,13 @@ export default function QuizPage() {
     let filteredWords = allWords;
     if (selectedLevel !== 'all') {
       filteredWords = allWords.filter((w) => w.level === selectedLevel);
+    }
+    if (typeFilter === 'word') {
+      filteredWords = filteredWords.filter((w) => !w.content.includes(' '));
+    } else if (typeFilter === 'phrase') {
+      filteredWords = filteredWords.filter((w) => w.content.includes(' '));
+    } else if (typeFilter === 'base-word') {
+      filteredWords = filteredWords.filter((w) => isBaseWord(w));
     }
 
     if (filteredWords.length === 0) {
@@ -200,6 +219,8 @@ export default function QuizPage() {
             stats={stats}
             selectedLevel={selectedLevel}
             setSelectedLevel={setSelectedLevel}
+            typeFilter={typeFilter}
+            setTypeFilter={setTypeFilter}
             quizCount={quizCount}
             setQuizCount={setQuizCount}
             availableCount={availableCount}
@@ -275,6 +296,8 @@ function SetupPanel({
   stats,
   selectedLevel,
   setSelectedLevel,
+  typeFilter,
+  setTypeFilter,
   quizCount,
   setQuizCount,
   availableCount,
@@ -283,6 +306,8 @@ function SetupPanel({
   stats?: WordStats;
   selectedLevel: number | 'all';
   setSelectedLevel: (level: number | 'all') => void;
+  typeFilter: 'all' | 'word' | 'phrase' | 'base-word';
+  setTypeFilter: (value: 'all' | 'word' | 'phrase' | 'base-word') => void;
   quizCount: number;
   setQuizCount: (count: number) => void;
   availableCount: number;
@@ -332,6 +357,34 @@ function SetupPanel({
                 )}
               >
                 Lv.{level} ({stats?.byLevel[level] || 0})
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-3 sm:space-y-4">
+          <div className="text-sm sm:text-base font-medium text-foreground block">类型筛选</div>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
+            {(
+              [
+                { value: 'all', label: '全部类型' },
+                { value: 'word', label: '单词' },
+                { value: 'phrase', label: '词组' },
+                { value: 'base-word', label: '词族' },
+              ] as const
+            ).map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setTypeFilter(opt.value)}
+                className={cn(
+                  'px-4 sm:px-5 py-2 sm:py-2.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200',
+                  typeFilter === opt.value
+                    ? 'bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20 ring-offset-1 ring-offset-background'
+                    : 'bg-secondary/60 hover:bg-secondary text-secondary-foreground hover:shadow-sm',
+                )}
+              >
+                {opt.label}
               </button>
             ))}
           </div>

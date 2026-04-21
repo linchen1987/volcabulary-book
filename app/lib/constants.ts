@@ -1,5 +1,3 @@
-export const SELF_BASE_WORD_ID = '__self__';
-
 export const STORAGE_KEYS = {
   THEME: 'theme',
   WORDS: '@vocab-book/words',

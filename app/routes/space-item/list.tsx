@@ -84,12 +84,7 @@ export default function WordListPage() {
 
   const q = searchParams.get('q') || '';
   const levelFilter = searchParams.get('level') ? Number(searchParams.get('level')) : undefined;
-  const familyFilter = (searchParams.get('family') || 'all') as
-    | 'all'
-    | 'base'
-    | 'non-base'
-    | 'unset';
-  const typeFilter = (searchParams.get('type') || 'all') as 'all' | 'word' | 'phrase';
+  const typeFilter = (searchParams.get('type') || 'all') as 'all' | 'word' | 'phrase' | 'base-word';
   const urlSort = searchParams.get('sort');
   const {
     sort: savedSort,
@@ -100,8 +95,6 @@ export default function WordListPage() {
     setShowLevel,
     showRelatedWords,
     setShowRelatedWords,
-    showWordFamily,
-    setShowWordFamily,
   } = useListViewConfig();
 
   const sortValue = urlSort || savedSort;
@@ -116,7 +109,6 @@ export default function WordListPage() {
   const [wordToDelete, setWordToDelete] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [relatedWordsMap, setRelatedWordsMap] = useState<Map<string, Word[]>>(new Map());
-  const [baseWordsMap, setBaseWordsMap] = useState<Map<string, Word>>(new Map());
 
   const [space, setSpace] = useState<Awaited<ReturnType<typeof SpaceService.getSpace>>>();
   const [stats, setStats] = useState<Awaited<ReturnType<typeof WordService.getStats>>>();
@@ -179,7 +171,6 @@ export default function WordListPage() {
         const result = await WordService.getWordsBySpace(spaceId, {
           search: q,
           levelFilter,
-          baseWordFilter: familyFilter,
           typeFilter,
           sortBy,
           sortOrder,
@@ -190,7 +181,6 @@ export default function WordListPage() {
         const count = await WordService.getWordCountBySpace(spaceId, {
           search: q,
           levelFilter,
-          baseWordFilter: familyFilter,
           typeFilter,
         });
 
@@ -205,7 +195,7 @@ export default function WordListPage() {
         setIsLoadingMore(false);
       }
     },
-    [spaceId, q, levelFilter, familyFilter, typeFilter, sortBy, sortOrder],
+    [spaceId, q, levelFilter, typeFilter, sortBy, sortOrder],
   );
 
   useEffect(() => {
@@ -256,25 +246,6 @@ export default function WordListPage() {
     loadRelatedWords();
   }, [showRelatedWords, words]);
 
-  useEffect(() => {
-    if (!showWordFamily || words.length === 0) return;
-
-    const loadBaseWords = async () => {
-      const newMap = new Map<string, Word>();
-      for (const word of words) {
-        if (word.baseWordId && word.baseWordId !== word.id) {
-          const baseWord = await WordService.getWord(word.baseWordId);
-          if (baseWord) {
-            newMap.set(word.id, baseWord);
-          }
-        }
-      }
-      setBaseWordsMap(newMap);
-    };
-
-    loadBaseWords();
-  }, [showWordFamily, words]);
-
   const clearSearch = () => {
     setInputQuery('');
     const params = new URLSearchParams(searchParams);
@@ -292,17 +263,7 @@ export default function WordListPage() {
     setSearchParams(params);
   };
 
-  const setFamilyFilter = (value: 'all' | 'base' | 'non-base' | 'unset') => {
-    const params = new URLSearchParams(searchParams);
-    if (value === 'all') {
-      params.delete('family');
-    } else {
-      params.set('family', value);
-    }
-    setSearchParams(params);
-  };
-
-  const setTypeFilter = (value: 'all' | 'word' | 'phrase') => {
+  const setTypeFilter = (value: 'all' | 'word' | 'phrase' | 'base-word') => {
     const params = new URLSearchParams(searchParams);
     if (value === 'all') {
       params.delete('type');
@@ -411,23 +372,6 @@ export default function WordListPage() {
     }, 0);
   };
 
-  const handleMarkAsBaseWord = async (wordId: string) => {
-    try {
-      await WordService.setBaseWordId(wordId, wordId, spaceId);
-      setWords((prev) =>
-        prev.map((w) =>
-          w.id === wordId ? { ...w, baseWordId: wordId, updatedAt: Date.now() } : w,
-        ),
-      );
-      if (shouldAutoSync) {
-        syncPush(spaceId);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error('标记词族失败');
-    }
-  };
-
   const handleLevelChange = async (wordId: string, level: number) => {
     try {
       const newUpdatedAt = Date.now();
@@ -513,26 +457,16 @@ export default function WordListPage() {
             </select>
 
             <select
-              value={familyFilter}
-              onChange={(e) =>
-                setFamilyFilter(e.target.value as 'all' | 'base' | 'non-base' | 'unset')
-              }
-              className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
-            >
-              <option value="all">全部词性</option>
-              <option value="base">基础词</option>
-              <option value="non-base">非基础词</option>
-              <option value="unset">未设置</option>
-            </select>
-
-            <select
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value as 'all' | 'word' | 'phrase')}
+              onChange={(e) =>
+                setTypeFilter(e.target.value as 'all' | 'word' | 'phrase' | 'base-word')
+              }
               className="h-9 rounded-lg border border-input bg-background px-3 py-1.5 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 cursor-pointer"
             >
               <option value="all">全部类型</option>
               <option value="word">单词</option>
               <option value="phrase">词组</option>
+              <option value="base-word">词族</option>
             </select>
           </div>
 
@@ -574,14 +508,6 @@ export default function WordListPage() {
               className="h-8 px-3 text-sm"
             >
               相关词
-            </Button>
-            <Button
-              variant={showWordFamily ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setShowWordFamily(!showWordFamily)}
-              className="h-8 px-3 text-sm"
-            >
-              词族
             </Button>
           </div>
         </div>
@@ -646,31 +572,6 @@ export default function WordListPage() {
                         />
                       </div>
                     )}
-                    {showWordFamily && (
-                      <div className="mt-3">
-                        {word.baseWordId === word.id ? (
-                          <span className="inline-flex items-center px-2.5 py-1 text-sm bg-primary/10 rounded-full">
-                            {word.content} (词族)
-                          </span>
-                        ) : word.baseWordId && baseWordsMap.has(word.id) ? (
-                          <button
-                            type="button"
-                            onClick={() => openViewDialog(baseWordsMap.get(word.id)?.id || word.id)}
-                            className="inline-flex items-center px-2.5 py-1 text-sm bg-primary/10 rounded-full hover:bg-primary/20 transition-colors cursor-pointer"
-                          >
-                            {baseWordsMap.get(word.id)?.content}
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleMarkAsBaseWord(word.id)}
-                            className="inline-flex items-center px-2.5 py-1 text-sm text-muted-foreground border border-dashed border-muted-foreground/40 rounded-full hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors cursor-pointer"
-                          >
-                            标记自身为词族
-                          </button>
-                        )}
-                      </div>
-                    )}
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     {word.description && !showTranslation && (
@@ -729,26 +630,22 @@ export default function WordListPage() {
                 <SearchIcon className="w-8 h-8 text-muted-foreground/50" />
               </div>
               <h3 className="text-lg font-semibold">
-                {q || levelFilter !== undefined || familyFilter !== 'all' || typeFilter !== 'all'
+                {q || levelFilter !== undefined || typeFilter !== 'all'
                   ? '没有找到匹配的单词'
                   : '暂无单词'}
               </h3>
               <p className="text-muted-foreground max-w-xs mx-auto">
-                {q || levelFilter !== undefined || familyFilter !== 'all' || typeFilter !== 'all'
+                {q || levelFilter !== undefined || typeFilter !== 'all'
                   ? '尝试修改搜索条件'
                   : '点击右下角按钮添加你的第一个单词'}
               </p>
-              {(q ||
-                levelFilter !== undefined ||
-                familyFilter !== 'all' ||
-                typeFilter !== 'all') && (
+              {(q || levelFilter !== undefined || typeFilter !== 'all') && (
                 <Button
                   variant="outline"
                   className="mt-4"
                   onClick={() => {
                     clearSearch();
                     setLevelFilter(undefined);
-                    setFamilyFilter('all');
                     setTypeFilter('all');
                   }}
                 >

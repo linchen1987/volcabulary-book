@@ -234,8 +234,10 @@ export function AddWordDialog({
     if (!word || mode === 'add') return;
     if (mode !== 'edit' && mode !== 'view') return;
 
-    if (word.baseWordId !== undefined && word.baseWordId !== word.id) {
-      WordService.getWord(word.baseWordId).then((bw) => {
+    if (word.baseWordId !== undefined) {
+      const loadBaseWord =
+        word.baseWordId === word.id ? Promise.resolve(word) : WordService.getWord(word.baseWordId);
+      loadBaseWord.then((bw) => {
         if (bw) {
           setBaseWordState((prev) => ({
             ...prev,
@@ -595,7 +597,7 @@ export function AddWordDialog({
                   </div>
                 )}
 
-                {word?.baseWordId && word.baseWordId !== word.id && (
+                {word?.baseWordId && (
                   <div>
                     <Label className="text-muted-foreground text-xs">词族</Label>
                     <div className="mt-1.5">

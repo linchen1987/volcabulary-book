@@ -403,7 +403,7 @@ export const WordService = {
       const word = await db.words.get(wordId);
       if (!word) throw new Error('单词不存在');
 
-      if (!baseWordId || baseWordId === wordId) {
+      if (!baseWordId) {
         await db.words.update(wordId, { baseWordId: undefined, updatedAt: Date.now() });
         return;
       }

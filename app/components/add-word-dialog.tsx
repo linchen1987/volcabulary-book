@@ -337,7 +337,6 @@ export function AddWordDialog({
         limit: SEARCH_PAGE_SIZE,
         offset,
       });
-      const filtered = results.filter((w) => w.id !== wordId);
       const hasMore = results.length === SEARCH_PAGE_SIZE;
       setBaseWordState((prev) => ({
         ...prev,
@@ -347,7 +346,7 @@ export function AddWordDialog({
         isLoadingMore: false,
       }));
     },
-    [spaceId, wordId],
+    [spaceId],
   );
 
   const handleSearchBaseWords = (query: string) => {

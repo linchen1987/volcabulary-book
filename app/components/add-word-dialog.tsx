@@ -340,8 +340,8 @@ export function AddWordDialog({
       const hasMore = results.length === SEARCH_PAGE_SIZE;
       setBaseWordState((prev) => ({
         ...prev,
-        searchResults: append ? [...prev.searchResults, ...filtered] : filtered,
-        searchOffset: offset + filtered.length,
+        searchResults: append ? [...prev.searchResults, ...results] : results,
+        searchOffset: offset + results.length,
         hasMore,
         isLoadingMore: false,
       }));

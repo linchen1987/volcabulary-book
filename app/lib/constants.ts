@@ -11,6 +11,7 @@ export const STORAGE_KEYS = {
   S3_SECRET_ACCESS_KEY: '@vocab-book/s3_secret_access_key',
   S3_REGION: '@vocab-book/s3_region',
   LAST_SYNC_TIME_PREFIX: '@vocab-book/last_sync_',
+  LAST_PULL_TIME_PREFIX: '@vocab-book/last_pull_',
   SIDEBAR_WIDTH: '@vocab-book/sidebar_width',
   DESKTOP_SIDEBAR_OPEN: '@vocab-book/desktop_sidebar_open',
   SPACE_AUTO_SYNC_PREFIX: '@vocab-book/space_auto_sync_',

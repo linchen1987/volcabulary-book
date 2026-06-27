@@ -5,7 +5,7 @@ import { FsService } from '~/lib/services/fs-service';
 import { SyncService } from '~/lib/services/sync/service';
 
 /** Minimum interval between automatic pulls triggered by sync/ensurePulled. */
-const PULL_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const PULL_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
 
 /**
  * Decide whether a pull is due given the last pull timestamp.

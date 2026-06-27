@@ -23,12 +23,19 @@ function formatTimeAgo(timestamp: number): string {
 
 export function SyncStatus({ spaceId, isSyncing }: SyncStatusProps) {
   const [lastSyncTime, setLastSyncTime] = useState<number | undefined>();
+  const [, setTick] = useState(0);
 
   useEffect(() => {
     if (!isSyncing) {
       setLastSyncTime(getLastSyncTime(spaceId));
     }
   }, [spaceId, isSyncing]);
+
+  // Periodically refresh the relative time display.
+  useEffect(() => {
+    const id = setInterval(() => setTick((t) => t + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const isConfigured = FsService.isConfigured();
 

@@ -118,10 +118,13 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     }
   },
   ensurePulled: async (spaceId: string, onSyncComplete?: () => Promise<void>) => {
+    if (!FsService.isConfigured()) return false;
     if (!shouldPullBeforePush(spaceId)) {
       return true;
     }
+    if (get().isSyncing) return false;
 
+    set({ isSyncing: true, spaceId });
     try {
       await SyncService.pull(spaceId);
       setLastPullTime(spaceId);
@@ -133,6 +136,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       console.error('Auto pull error:', e);
       toast.error(`自动拉取失败: ${errorMessage}`);
       return false;
+    } finally {
+      set({ isSyncing: false, spaceId: null });
     }
   },
 }));
